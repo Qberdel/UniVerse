@@ -8,10 +8,32 @@ export type ApiResult<T> = {
   error?: string;
 };
 
-type RegisterPayload = {
+export type RegisterPayload = {
   email: string;
   password: string;
+  /** Дополнительные поля — бэкенд может использовать или игнорировать */
+  name?: string;
+  university?: string;
 };
+
+function extractApiError(data: unknown, fallback: string): string {
+  if (data == null) return fallback;
+  if (typeof data === "string") return data || fallback;
+  if (typeof data === "object") {
+    const o = data as Record<string, unknown>;
+    const msg = o.message ?? o.error ?? o.detail;
+    if (typeof msg === "string" && msg.trim()) return msg;
+    if (Array.isArray(o.errors) && o.errors.length > 0) {
+      const first = o.errors[0];
+      if (typeof first === "string") return first;
+      if (first && typeof first === "object" && "message" in first) {
+        const m = (first as { message?: string }).message;
+        if (m) return m;
+      }
+    }
+  }
+  return fallback;
+}
 
 type LoginPayload = {
   email: string;
@@ -20,15 +42,29 @@ type LoginPayload = {
 
 export async function registerRequest(payload: RegisterPayload): Promise<ApiResult<unknown>> {
   try {
+    const body: Record<string, string> = {
+      email: payload.email,
+      password: payload.password,
+    };
+    if (payload.name?.trim()) body.name = payload.name.trim();
+    if (payload.university?.trim()) body.university = payload.university.trim();
+
     const response = await fetch(`${API_BASE_URL}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
 
-    const data = await response.json().catch(() => undefined);
+    const text = await response.text();
+    let data: unknown;
+    try {
+      data = text ? JSON.parse(text) : undefined;
+    } catch {
+      data = text || undefined;
+    }
+
     if (!response.ok) {
-      return { ok: false, error: (data as { message?: string } | undefined)?.message ?? "Ошибка регистрации" };
+      return { ok: false, error: extractApiError(data, "Ошибка регистрации") };
     }
     return { ok: true, data };
   } catch {

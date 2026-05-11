@@ -28,24 +28,31 @@ export function RegistrationPage() {
       setError('Пароли не совпадают');
       return;
     }
-    setSubmitting(true);
-    const response = await registerRequest({
-      email: formData.email.trim(),
-      password: formData.password,
-    });
-    setSubmitting(false);
-    if (!response.ok) {
-      setError(response.error ?? "Ошибка регистрации");
-      return;
-    }
 
-    setProfile({
-      name: formData.name,
-      university: formData.university,
-      email: formData.email,
-    });
-    setRegistered(false);
-    navigate('/login');
+    setSubmitting(true);
+    try {
+      const response = await registerRequest({
+        email: formData.email.trim(),
+        password: formData.password,
+        name: formData.name.trim(),
+        university: formData.university.trim(),
+      });
+
+      if (!response.ok) {
+        setError(response.error ?? "Ошибка регистрации");
+        return;
+      }
+
+      setProfile({
+        name: formData.name,
+        university: formData.university,
+        email: formData.email.trim(),
+      });
+      setRegistered(false);
+      navigate("/login");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
