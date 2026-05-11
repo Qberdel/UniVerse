@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from "react-router";
-import { GraduationCap, Home, ShoppingCart, Menu as MenuIcon, User, Plus, ShieldCheck } from 'lucide-react';
+import { GraduationCap, Home, Menu as MenuIcon, User, Plus, ShieldCheck } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '../components/ui/sheet';
 
 const NAV_LINKS = [
   { path: '/', icon: Home, label: 'Главная' },
-  { path: '/menu', icon: MenuIcon, label: 'Меню' },
-  { path: '/cart', icon: ShoppingCart, label: 'Корзина' },
+  { path: '/menu', icon: MenuIcon, label: 'Товары' },
   { path: '/add-activity', icon: Plus, label: 'Добавить' },
   { path: '/profile', icon: User, label: 'Профиль' },
   { path: '/moderator', icon: ShieldCheck, label: 'Модерация' },

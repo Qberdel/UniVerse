@@ -7,10 +7,12 @@ import { Mail, Lock, User } from 'lucide-react';
 import { setRegistered } from '../lib/auth';
 import { setProfile } from '../lib/profile';
 import { AuthPageShell } from '../components/AuthPageShell';
+import { registerRequest } from '../lib/api';
 
 export function RegistrationPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -19,21 +21,31 @@ export function RegistrationPage() {
     university: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (formData.password !== formData.confirmPassword) {
       setError('Пароли не совпадают');
       return;
     }
-    // Здесь будет логика регистрации
-    setRegistered(true);
+    setSubmitting(true);
+    const response = await registerRequest({
+      email: formData.email.trim(),
+      password: formData.password,
+    });
+    setSubmitting(false);
+    if (!response.ok) {
+      setError(response.error ?? "Ошибка регистрации");
+      return;
+    }
+
     setProfile({
       name: formData.name,
       university: formData.university,
       email: formData.email,
     });
-    navigate('/profile');
+    setRegistered(false);
+    navigate('/login');
   };
 
   return (
@@ -120,7 +132,7 @@ export function RegistrationPage() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={submitting}>
             Зарегистрироваться
           </Button>
         </form>

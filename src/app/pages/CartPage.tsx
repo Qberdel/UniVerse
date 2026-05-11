@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -74,7 +75,9 @@ export function CartPage() {
           <ShoppingBag className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="mb-2 text-xl sm:text-2xl">Корзина пуста</h2>
           <p className="text-sm sm:text-base text-muted-foreground mb-6">Добавьте товары из меню</p>
-          <Button>Перейти в меню</Button>
+          <Button asChild>
+            <Link to="/menu">Перейти в товары</Link>
+          </Button>
         </div>
       </div>
     );

@@ -4,20 +4,35 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Mail, Lock } from 'lucide-react';
-import { setRegistered } from '../lib/auth';
+import { setAuthToken, setRegistered } from '../lib/auth';
 import { getProfile, setProfile } from '../lib/profile';
 import { AuthPageShell } from '../components/AuthPageShell';
+import { loginRequest } from '../lib/api';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Здесь будет логика входа
+    setError(null);
+    setSubmitting(true);
+    const response = await loginRequest({
+      email: formData.email.trim(),
+      password: formData.password,
+    });
+    setSubmitting(false);
+    if (!response.ok || !response.data?.token) {
+      setError(response.error ?? "Ошибка входа");
+      return;
+    }
+
+    setAuthToken(response.data.token);
     setRegistered(true);
     const existing = getProfile();
     if (!existing) {
@@ -35,6 +50,11 @@ export function LoginPage() {
   return (
     <AuthPageShell title="Вход в систему" subtitle="Войдите в свой аккаунт UniVerse">
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+          {error && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
@@ -72,7 +92,7 @@ export function LoginPage() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={submitting}>
             Войти
           </Button>
         </form>

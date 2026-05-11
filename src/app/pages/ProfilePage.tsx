@@ -21,9 +21,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
-import { clearAuth } from "../lib/auth";
+import { clearAuth, getAuthToken } from "../lib/auth";
 import { clearProfile, getProfile, setProfile, type UserProfile } from "../lib/profile";
 import { useNavigate } from "react-router";
+import { profileRequest } from "../lib/api";
 
 type ActivityItem = {
   id: number;
@@ -428,6 +429,7 @@ export function ProfilePage() {
   const [supplementOpen, setSupplementOpen] = useState(false);
   const [supplementText, setSupplementText] = useState("");
   const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
+  const [apiAuthStatus, setApiAuthStatus] = useState<"loading" | "ok" | "error">("loading");
 
   const [profile, setProfileState] = useState<UserProfile>(() => {
     const stored = getProfile();
@@ -443,6 +445,24 @@ export function ProfilePage() {
   useEffect(() => {
     const stored = getProfile();
     if (stored) setProfileState(stored);
+  }, []);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      setApiAuthStatus("error");
+      return;
+    }
+
+    let cancelled = false;
+    profileRequest(token).then((result) => {
+      if (cancelled) return;
+      setApiAuthStatus(result.ok ? "ok" : "error");
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const [editEmail, setEditEmail] = useState(profile.email);
@@ -539,6 +559,14 @@ export function ProfilePage() {
           <h1 className="text-xl sm:text-2xl mb-2">Профиль</h1>
           <p className="text-sm sm:text-base text-muted-foreground">
             Ваш аккаунт и история начислений АК.
+          </p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            API профиль:{" "}
+            {apiAuthStatus === "loading"
+              ? "проверка..."
+              : apiAuthStatus === "ok"
+                ? "доступ подтвержден"
+                : "ошибка авторизации"}
           </p>
         </div>
 
