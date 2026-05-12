@@ -1,6 +1,11 @@
-declare const __API_BASE_URL__: string;
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ?? "";
 
-export const API_BASE_URL = __API_BASE_URL__.replace(/\/+$/, "");
+function getApiBaseUrl() {
+  if (!API_BASE_URL) {
+    throw new Error("Не задан VITE_API_BASE_URL");
+  }
+  return API_BASE_URL;
+}
 
 export type ApiResult<T> = {
   ok: boolean;
@@ -49,7 +54,7 @@ export async function registerRequest(payload: RegisterPayload): Promise<ApiResu
     if (payload.name?.trim()) body.name = payload.name.trim();
     if (payload.university?.trim()) body.university = payload.university.trim();
 
-    const response = await fetch(`${API_BASE_URL}/register`, {
+    const response = await fetch(`${getApiBaseUrl()}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -74,7 +79,7 @@ export async function registerRequest(payload: RegisterPayload): Promise<ApiResu
 
 export async function loginRequest(payload: LoginPayload): Promise<ApiResult<{ token: string }>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/login`, {
+    const response = await fetch(`${getApiBaseUrl()}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -101,7 +106,7 @@ export async function loginRequest(payload: LoginPayload): Promise<ApiResult<{ t
 
 export async function profileRequest(token: string): Promise<ApiResult<unknown>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/profile`, {
+    const response = await fetch(`${getApiBaseUrl()}/profile`, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
