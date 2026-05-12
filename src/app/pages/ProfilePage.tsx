@@ -25,16 +25,14 @@ import { clearAuth, getAuthToken } from "../lib/auth";
 import { clearProfile, getProfile, setProfile, type UserProfile } from "../lib/profile";
 import { useNavigate } from "react-router";
 import { profileRequest } from "../lib/api";
+import {
+  getStudentClaims,
+  persistStudentClaims,
+  subscribeStudentClaimsUpdated,
+  type StudentClaim,
+} from "../lib/claims";
 
-type ActivityItem = {
-  id: number;
-  date: string;
-  activity: string;
-  coins: number;
-  status: "На проверке" | "Принято" | "Дополнить" | "Отклонено";
-};
-
-function getStatusBadgeVariant(status: ActivityItem["status"]): "default" | "secondary" | "outline" {
+function getStatusBadgeVariant(status: StudentClaim["status"]): "default" | "secondary" | "outline" {
   if (status === "Принято") return "secondary";
   if (status === "Дополнить" || status === "Отклонено") return "outline";
   return "default";
@@ -56,10 +54,10 @@ function ProfileVariantCabinet({
     rank: number;
     totalStudents: number;
   };
-  activityHistory: ActivityItem[];
+  activityHistory: StudentClaim[];
   chartData: { month: string; rating: number; applications: number }[];
   onEdit: () => void;
-  onOpenSupplement: (item: ActivityItem) => void;
+  onOpenSupplement: (item: StudentClaim) => void;
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -335,9 +333,9 @@ function ProfileVariantCompact({
     activeCoins: number;
     rank: number;
   };
-  activityHistory: ActivityItem[];
+  activityHistory: StudentClaim[];
   onEdit: () => void;
-  onOpenSupplement: (item: ActivityItem) => void;
+  onOpenSupplement: (item: StudentClaim) => void;
 }) {
   const topActivities = useMemo(() => {
     return [...activityHistory].sort((a, b) => b.coins - a.coins).slice(0, 5);
@@ -425,9 +423,11 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const [variant, setVariant] = useState<"cabinet" | "compact">("cabinet");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const supplementFileRef = useRef<HTMLInputElement | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [supplementOpen, setSupplementOpen] = useState(false);
   const [supplementText, setSupplementText] = useState("");
+  const [supplementPhotoDataUrl, setSupplementPhotoDataUrl] = useState<string | undefined>(undefined);
   const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
   const [apiAuthStatus, setApiAuthStatus] = useState<"loading" | "ok" | "error">("loading");
 
@@ -465,6 +465,12 @@ export function ProfilePage() {
     };
   }, []);
 
+  useEffect(() => {
+    return subscribeStudentClaimsUpdated(() => {
+      setActivityHistory(getStudentClaims());
+    });
+  }, []);
+
   const [editEmail, setEditEmail] = useState(profile.email);
   const [editAvatarDataUrl, setEditAvatarDataUrl] = useState<string | undefined>(profile.avatarDataUrl);
 
@@ -474,13 +480,7 @@ export function ProfilePage() {
     setEditAvatarDataUrl(profile.avatarDataUrl);
   }, [editOpen, profile.avatarDataUrl, profile.email]);
 
-  const [activityHistory, setActivityHistory] = useState<ActivityItem[]>([
-    { id: 1, date: "2026-04-20", activity: "Участие в олимпиаде по физике", coins: 500, status: "На проверке" },
-    { id: 2, date: "2026-04-15", activity: "Волонтерство на мероприятии", coins: 300, status: "Принято" },
-    { id: 3, date: "2026-04-10", activity: "Публикация статьи", coins: 800, status: "Дополнить" },
-    { id: 4, date: "2026-04-05", activity: "Участие в конференции", coins: 600, status: "Отклонено" },
-    { id: 5, date: "2026-03-28", activity: "Спортивные соревнования", coins: 400, status: "Принято" },
-  ]);
+  const [activityHistory, setActivityHistory] = useState<StudentClaim[]>(() => getStudentClaims());
 
   const chartData = [
     { month: "Янв", rating: 18000, applications: 0 },
@@ -534,22 +534,53 @@ export function ProfilePage() {
 
   const selectedActivity = activityHistory.find((item) => item.id === selectedActivityId) ?? null;
 
-  const onOpenSupplement = (item: ActivityItem) => {
+  const onOpenSupplement = (item: StudentClaim) => {
     setSelectedActivityId(item.id);
     setSupplementText("");
+    setSupplementPhotoDataUrl(undefined);
     setSupplementOpen(true);
   };
 
+  const onSupplementPhotoSelected = (file: File | null) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : undefined;
+      setSupplementPhotoDataUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const onSubmitSupplement = () => {
-    if (!selectedActivityId || supplementText.trim().length === 0) return;
-    setActivityHistory((prev) =>
-      prev.map((item) =>
-        item.id === selectedActivityId ? { ...item, status: "На проверке" } : item,
-      ),
-    );
+    const text = supplementText.trim();
+    const hasPhoto = Boolean(supplementPhotoDataUrl);
+    if (!selectedActivityId || (!text && !hasPhoto)) return;
+
+    const entry = {
+      text: text || (hasPhoto ? "Прикреплено фото-доказательство" : ""),
+      photoDataUrl: supplementPhotoDataUrl,
+      createdAt: new Date().toISOString(),
+    };
+
+    setActivityHistory((prev) => {
+      const next = prev.map((item) =>
+        item.id === selectedActivityId
+          ? {
+              ...item,
+              status: "На проверке" as const,
+              supplements: [...item.supplements, entry],
+            }
+          : item,
+      );
+      persistStudentClaims(next);
+      return next;
+    });
+
     setSupplementOpen(false);
     setSupplementText("");
+    setSupplementPhotoDataUrl(undefined);
     setSelectedActivityId(null);
+    if (supplementFileRef.current) supplementFileRef.current.value = "";
   };
 
   return (
@@ -715,12 +746,23 @@ export function ProfilePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={supplementOpen} onOpenChange={setSupplementOpen}>
+      <Dialog
+        open={supplementOpen}
+        onOpenChange={(open) => {
+          setSupplementOpen(open);
+          if (!open) {
+            setSupplementText("");
+            setSupplementPhotoDataUrl(undefined);
+            setSelectedActivityId(null);
+            if (supplementFileRef.current) supplementFileRef.current.value = "";
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Дополнение заявки</DialogTitle>
             <DialogDescription>
-              Добавьте недостающую информацию. После отправки заявка вернется в статус «На проверке».
+              Добавьте комментарий и/или фото-доказательство. Нужно хотя бы одно: текст или изображение. После отправки заявка вернётся в статус «На проверке».
             </DialogDescription>
           </DialogHeader>
 
@@ -734,9 +776,45 @@ export function ProfilePage() {
                 id="supplement-text"
                 value={supplementText}
                 onChange={(e) => setSupplementText(e.target.value)}
-                placeholder="Опишите, что добавлено к заявке..."
-                rows={5}
+                placeholder="Опишите, что добавлено к заявке (необязательно, если прикрепляете только фото)..."
+                rows={4}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Фото-доказательство</Label>
+              <input
+                ref={supplementFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => onSupplementPhotoSelected(e.target.files?.[0] ?? null)}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => supplementFileRef.current?.click()}>
+                  Выбрать фото
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSupplementPhotoDataUrl(undefined);
+                    if (supplementFileRef.current) supplementFileRef.current.value = "";
+                  }}
+                  disabled={!supplementPhotoDataUrl}
+                >
+                  Убрать фото
+                </Button>
+              </div>
+              {supplementPhotoDataUrl && (
+                <div className="rounded-lg border overflow-hidden bg-muted/30 max-w-full">
+                  <img
+                    src={supplementPhotoDataUrl}
+                    alt="Предпросмотр"
+                    className="max-h-48 w-auto object-contain mx-auto block"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -744,7 +822,11 @@ export function ProfilePage() {
             <Button type="button" variant="outline" onClick={() => setSupplementOpen(false)}>
               Отмена
             </Button>
-            <Button type="button" onClick={onSubmitSupplement} disabled={supplementText.trim().length === 0}>
+            <Button
+              type="button"
+              onClick={onSubmitSupplement}
+              disabled={!supplementText.trim() && !supplementPhotoDataUrl}
+            >
               Отправить дополнение
             </Button>
           </DialogFooter>

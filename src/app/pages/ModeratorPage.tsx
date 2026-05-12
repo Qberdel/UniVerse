@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
@@ -20,7 +21,8 @@ import {
 } from "../components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { CheckCircle2, FileText, HelpCircle, Search, Shield, XCircle } from "lucide-react";
+import { CheckCircle2, FileText, HelpCircle, Image as ImageIcon, Search, Shield, XCircle } from "lucide-react";
+import { getClaimById, getStudentClaims, subscribeStudentClaimsUpdated } from "../lib/claims";
 
 type ModerationStatus = "pending" | "accepted" | "rejected" | "need_info";
 
@@ -33,6 +35,8 @@ type ModerationRequest = {
   title: string;
   requestedAK?: number;
   status: ModerationStatus;
+  /** Связь с заявкой студента в профиле (id из `universe:studentClaims`) */
+  linkClaimId?: number;
 };
 
 function statusBadge(status: ModerationStatus) {
@@ -52,6 +56,15 @@ export function ModeratorPage() {
   const [query, setQuery] = useState("");
   const [universityFilter, setUniversityFilter] = useState<string>("all");
   const [hintOpen, setHintOpen] = useState(false);
+  const [claimsTick, setClaimsTick] = useState(0);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [evidenceRequest, setEvidenceRequest] = useState<ModerationRequest | null>(null);
+
+  const claims = useMemo(() => getStudentClaims(), [claimsTick]);
+
+  useEffect(() => {
+    return subscribeStudentClaimsUpdated(() => setClaimsTick((t) => t + 1));
+  }, []);
 
   useEffect(() => {
     // Подсказка должна показываться при каждом заходе на страницу.
@@ -74,10 +87,11 @@ export function ModeratorPage() {
       createdAt: "2026-04-27T15:10:00.000Z",
       studentName: "Мария Смирнова",
       university: "СПбГУ",
-      category: "Волонтерство",
-      title: "Волонтерство на городском фестивале",
-      requestedAK: 300,
+      category: "Научная работа",
+      title: "Публикация статьи в сборнике конференции",
+      requestedAK: 800,
       status: "need_info",
+      linkClaimId: 3,
     },
     {
       id: "REQ-1026",
@@ -85,8 +99,8 @@ export function ModeratorPage() {
       studentName: "Алексей Иванов",
       university: "НИУ ВШЭ",
       category: "Научная работа",
-      title: "Публикация статьи в сборнике конференции",
-      requestedAK: 800,
+      title: "Доклад на межвузовской конференции",
+      requestedAK: 450,
       status: "accepted",
     },
     {
@@ -139,6 +153,13 @@ export function ModeratorPage() {
     setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: next } : r)));
   };
 
+  const openEvidence = (r: ModerationRequest) => {
+    setEvidenceRequest(r);
+    setEvidenceOpen(true);
+  };
+
+  const linkedClaim = evidenceRequest?.linkClaimId != null ? getClaimById(claims, evidenceRequest.linkClaimId) : undefined;
+
   const renderTable = (items: ModerationRequest[]) => (
     <div className="border rounded-lg">
       <Table>
@@ -149,12 +170,16 @@ export function ModeratorPage() {
             <TableHead>ВУЗ</TableHead>
             <TableHead>Категория</TableHead>
             <TableHead>АК</TableHead>
+            <TableHead>Доказательства</TableHead>
             <TableHead>Статус</TableHead>
             <TableHead className="text-right">Действия</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((r) => (
+          {items.map((r) => {
+            const claim = r.linkClaimId != null ? getClaimById(claims, r.linkClaimId) : undefined;
+            const hasSupplements = Boolean(claim && claim.supplements.length > 0);
+            return (
             <TableRow key={r.id} className="!align-top">
               <TableCell className="!whitespace-normal !align-top">
                 <div className="min-w-0">
@@ -174,6 +199,18 @@ export function ModeratorPage() {
               <TableCell className="!align-top">{r.university}</TableCell>
               <TableCell className="!whitespace-normal !align-top break-words">{r.category}</TableCell>
               <TableCell className="!align-top">{typeof r.requestedAK === "number" ? `${r.requestedAK}` : "—"}</TableCell>
+              <TableCell className="!align-top">
+                {hasSupplements ? (
+                  <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => openEvidence(r)}>
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Смотреть
+                  </Button>
+                ) : r.linkClaimId != null ? (
+                  <span className="text-xs text-muted-foreground">Пока нет</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </TableCell>
               <TableCell className="!align-top">{statusBadge(r.status)}</TableCell>
               <TableCell className="text-right !align-top">
                 <div className="flex flex-col sm:flex-row justify-end gap-2">
@@ -207,10 +244,11 @@ export function ModeratorPage() {
                 </div>
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
           {items.length === 0 && (
             <TableRow>
-              <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground whitespace-normal">
+              <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground whitespace-normal">
                 Ничего не найдено по текущим фильтрам.
               </TableCell>
             </TableRow>
@@ -240,8 +278,8 @@ export function ModeratorPage() {
               <DialogHeader>
                 <DialogTitle>Подсказка</DialogTitle>
                 <DialogDescription>
-                  В первой версии это демонстрационная модерация: статусы меняются локально.
-                  Позже можно подключить API и хранение файлов доказательств.
+                  Статусы меняются локально. Дополнения и фото со страницы профиля студента сохраняются в браузере и
+                  отображаются здесь для заявок со связью по ID (демо: REQ-1025 ↔ заявка «Публикация статьи»).
                 </DialogDescription>
               </DialogHeader>
             </DialogContent>
@@ -307,6 +345,45 @@ export function ModeratorPage() {
           </Tabs>
         </Card>
       </div>
+
+      <Dialog open={evidenceOpen} onOpenChange={setEvidenceOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Доказательства по заявке</DialogTitle>
+            <DialogDescription>
+              {evidenceRequest ? `${evidenceRequest.id} — ${evidenceRequest.title}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {linkedClaim && linkedClaim.supplements.length > 0 ? (
+            <div className="space-y-4">
+              {linkedClaim.supplements.map((s, idx) => (
+                <div key={`${s.createdAt}-${idx}`} className="rounded-lg border p-3 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(s.createdAt).toLocaleString("ru-RU")}
+                  </p>
+                  <p className="text-sm whitespace-pre-wrap">{s.text}</p>
+                  {s.photoDataUrl && (
+                    <a href={s.photoDataUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <img
+                        src={s.photoDataUrl}
+                        alt={`Доказательство ${idx + 1}`}
+                        className="max-h-64 w-full rounded-md object-contain bg-muted/50 border"
+                      />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Нет загруженных дополнений для этой заявки.</p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEvidenceOpen(false)}>
+              Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

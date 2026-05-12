@@ -11,6 +11,7 @@ import { MenuPage } from "./pages/MenuPage";
 import { AddActivityPage } from "./pages/AddActivityPage";
 import { ModeratorPage } from "./pages/ModeratorPage";
 import { CompareUniversitiesPage } from "./pages/CompareUniversitiesPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { isRegistered } from "./lib/auth";
 
 export const router = createBrowserRouter([
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
       { path: "add-activity", Component: AddActivityPage },
       { path: "moderator", Component: ModeratorPage },
       { path: "compare", Component: CompareUniversitiesPage },
+      { path: "*", Component: NotFoundPage },
     ],
   },
 ]);
