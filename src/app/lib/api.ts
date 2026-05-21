@@ -16,8 +16,7 @@ export type ApiResult<T> = {
 export type RegisterPayload = {
   email: string;
   password: string;
-  /** Дополнительные поля — бэкенд может использовать или игнорировать */
-  name?: string;
+  username?: string;
   university?: string;
 };
 
@@ -47,7 +46,7 @@ type LoginPayload = {
 
 /** Поля пользователя из ответа login / profile */
 export type AuthUserPayload = {
-  name?: string;
+  username?: string;
   university?: string;
   email?: string;
 };
@@ -99,7 +98,7 @@ export function parseAuthUserPayload(data: unknown): AuthUserPayload {
     email ??= pickString(src, ["email", "mail"]);
   }
 
-  return { name, university, email };
+  return { username: name, university, email };
 }
 
 export async function registerRequest(payload: RegisterPayload): Promise<ApiResult<unknown>> {
@@ -108,7 +107,7 @@ export async function registerRequest(payload: RegisterPayload): Promise<ApiResu
       email: payload.email,
       password: payload.password,
     };
-    if (payload.name?.trim()) body.name = payload.name.trim();
+    if (payload.username?.trim()) body.username = payload.username.trim();
     if (payload.university?.trim()) body.university = payload.university.trim();
 
     const response = await fetch(`${getApiBaseUrl()}/register`, {

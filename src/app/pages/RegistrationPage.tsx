@@ -34,7 +34,7 @@ export function RegistrationPage() {
       const response = await registerRequest({
         email: formData.email.trim(),
         password: formData.password,
-        name: formData.name.trim(),
+        username: formData.name.trim(),
         university: formData.university.trim(),
       });
 
