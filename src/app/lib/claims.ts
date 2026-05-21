@@ -22,6 +22,8 @@ const DEFAULT_CLAIMS: StudentClaim[] = [
   { id: 3, date: "2026-04-10", activity: "Публикация статьи", coins: 800, status: "Дополнить", supplements: [] },
   { id: 4, date: "2026-04-05", activity: "Участие в конференции", coins: 600, status: "Отклонено", supplements: [] },
   { id: 5, date: "2026-03-28", activity: "Спортивные соревнования", coins: 400, status: "Принято", supplements: [] },
+  { id: 6, date: "2026-04-18", activity: "Стажировка в IT-компании", coins: 650, status: "Дополнить", supplements: [] },
+  { id: 7, date: "2026-04-12", activity: "Участие в студенческом хакатоне", coins: 550, status: "Дополнить", supplements: [] },
 ];
 
 function mergeWithDefaults(stored: StudentClaim[]): StudentClaim[] {

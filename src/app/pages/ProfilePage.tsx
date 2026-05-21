@@ -22,9 +22,15 @@ import {
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
 import { clearAuth, getAuthToken } from "../lib/auth";
-import { clearProfile, getProfile, setProfile, type UserProfile } from "../lib/profile";
+import {
+  applyAuthUserToProfile,
+  clearProfile,
+  getProfile,
+  setProfile,
+  type UserProfile,
+} from "../lib/profile";
 import { useNavigate } from "react-router";
-import { profileRequest } from "../lib/api";
+import { parseAuthUserPayload, profileRequest } from "../lib/api";
 import {
   getStudentClaims,
   persistStudentClaims,
@@ -458,6 +464,10 @@ export function ProfilePage() {
     profileRequest(token).then((result) => {
       if (cancelled) return;
       setApiAuthStatus(result.ok ? "ok" : "error");
+      if (result.ok) {
+        const next = applyAuthUserToProfile(parseAuthUserPayload(result.data));
+        setProfileState(next);
+      }
     });
 
     return () => {

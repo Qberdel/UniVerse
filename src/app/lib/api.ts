@@ -45,6 +45,63 @@ type LoginPayload = {
   password: string;
 };
 
+/** Поля пользователя из ответа login / profile */
+export type AuthUserPayload = {
+  name?: string;
+  university?: string;
+  email?: string;
+};
+
+export type LoginResponseData = {
+  token: string;
+  user: AuthUserPayload;
+};
+
+function pickString(obj: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const v = obj[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return undefined;
+}
+
+/** username, university и др. из тела ответа API */
+export function parseAuthUserPayload(data: unknown): AuthUserPayload {
+  if (data == null || typeof data !== "object") return {};
+
+  const root = data as Record<string, unknown>;
+  const nested = [root.user, root.profile, root.data, root.student].find(
+    (x) => x != null && typeof x === "object",
+  ) as Record<string, unknown> | undefined;
+
+  const sources: Record<string, unknown>[] = nested ? [nested, root] : [root];
+
+  let name: string | undefined;
+  let university: string | undefined;
+  let email: string | undefined;
+
+  for (const src of sources) {
+    name ??= pickString(src, [
+      "username",
+      "userName",
+      "user_name",
+      "name",
+      "fullName",
+      "full_name",
+    ]);
+    university ??= pickString(src, [
+      "university",
+      "universityName",
+      "university_name",
+      "uni",
+      "vuz",
+    ]);
+    email ??= pickString(src, ["email", "mail"]);
+  }
+
+  return { name, university, email };
+}
+
 export async function registerRequest(payload: RegisterPayload): Promise<ApiResult<unknown>> {
   try {
     const body: Record<string, string> = {
@@ -77,7 +134,7 @@ export async function registerRequest(payload: RegisterPayload): Promise<ApiResu
   }
 }
 
-export async function loginRequest(payload: LoginPayload): Promise<ApiResult<{ token: string }>> {
+export async function loginRequest(payload: LoginPayload): Promise<ApiResult<LoginResponseData>> {
   try {
     const response = await fetch(`${getApiBaseUrl()}/login`, {
       method: "POST",
@@ -85,20 +142,24 @@ export async function loginRequest(payload: LoginPayload): Promise<ApiResult<{ t
       body: JSON.stringify(payload),
     });
 
-    const data = (await response.json().catch(() => undefined)) as
-      | { token?: string; access_token?: string; message?: string }
-      | undefined;
+    const data = (await response.json().catch(() => undefined)) as Record<string, unknown> | undefined;
 
     if (!response.ok) {
-      return { ok: false, error: data?.message ?? "Неверный email или пароль" };
+      const msg = typeof data?.message === "string" ? data.message : undefined;
+      return { ok: false, error: msg ?? "Неверный email или пароль" };
     }
 
-    const token = data?.token ?? data?.access_token;
+    const token =
+      (typeof data?.token === "string" ? data.token : undefined) ??
+      (typeof data?.access_token === "string" ? data.access_token : undefined);
     if (!token) {
       return { ok: false, error: "Сервер не вернул JWT токен" };
     }
 
-    return { ok: true, data: { token } };
+    const user = parseAuthUserPayload(data);
+    if (!user.email) user.email = payload.email.trim();
+
+    return { ok: true, data: { token, user } };
   } catch {
     return { ok: false, error: "Не удалось подключиться к API" };
   }

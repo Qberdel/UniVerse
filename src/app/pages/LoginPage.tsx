@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Mail, Lock } from 'lucide-react';
 import { setAuthToken, setRegistered } from '../lib/auth';
-import { getProfile, setProfile } from '../lib/profile';
+import { loadProfileFromApi } from '../lib/profile';
 import { AuthPageShell } from '../components/AuthPageShell';
 import { loginRequest } from '../lib/api';
 
@@ -34,16 +34,11 @@ export function LoginPage() {
 
     setAuthToken(response.data.token);
     setRegistered(true);
-    const existing = getProfile();
-    if (!existing) {
-      setProfile({
-        name: "Пользователь",
-        university: "—",
-        email: formData.email,
-      });
-    } else if (existing.email !== formData.email) {
-      setProfile({ ...existing, email: formData.email });
-    }
+    await loadProfileFromApi(
+      response.data.token,
+      response.data.user,
+      formData.email.trim(),
+    );
     navigate('/profile');
   };
 
