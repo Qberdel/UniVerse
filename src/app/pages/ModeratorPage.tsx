@@ -161,8 +161,8 @@ export function ModeratorPage() {
   const linkedClaim = evidenceRequest?.linkClaimId != null ? getClaimById(claims, evidenceRequest.linkClaimId) : undefined;
 
   const renderTable = (items: ModerationRequest[]) => (
-    <div className="border rounded-lg">
-      <Table>
+    <div className="overflow-x-auto border rounded-lg">
+      <Table className="min-w-[720px]">
         <TableHeader>
           <TableRow>
             <TableHead>Заявка</TableHead>
@@ -315,7 +315,7 @@ export function ModeratorPage() {
           </div>
 
           <Tabs defaultValue="pending">
-            <TabsList className="grid w-full max-w-full sm:max-w-xl grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
               <TabsTrigger value="pending" className="text-xs sm:text-sm">
                 На модерации ({byStatus.pending.length})
               </TabsTrigger>

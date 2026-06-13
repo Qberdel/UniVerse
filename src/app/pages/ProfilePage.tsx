@@ -134,27 +134,29 @@ function ProfileVariantCabinet({
       <Card className="lg:col-span-3 p-4 sm:p-6">
         <Tabs defaultValue="all">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
-            <h3 className="text-base sm:text-lg">История активности</h3>
-            <TabsList className="w-full sm:w-auto">
-              <TabsTrigger value="all" className="flex-1 sm:flex-none text-xs sm:text-sm">
+            <h3 className="text-base sm:text-lg shrink-0">История активности</h3>
+            <div className="overflow-x-auto -mx-1 px-1 max-w-full">
+            <TabsList className="inline-flex h-auto flex-nowrap w-max min-w-0">
+              <TabsTrigger value="all" className="shrink-0 text-xs sm:text-sm px-2.5 sm:px-3">
                 Все
               </TabsTrigger>
               <TabsTrigger
                 value="pending"
-                className="flex-1 sm:flex-none text-xs sm:text-sm"
+                className="shrink-0 text-xs sm:text-sm px-2.5 sm:px-3"
               >
                 На проверке
               </TabsTrigger>
-                <TabsTrigger value="accepted" className="flex-1 sm:flex-none text-xs sm:text-sm">
+                <TabsTrigger value="accepted" className="shrink-0 text-xs sm:text-sm px-2.5 sm:px-3">
                 Принято
               </TabsTrigger>
-              <TabsTrigger value="rejected" className="flex-1 sm:flex-none text-xs sm:text-sm">
+              <TabsTrigger value="rejected" className="shrink-0 text-xs sm:text-sm px-2.5 sm:px-3">
                 Отклонено
               </TabsTrigger>
-              <TabsTrigger value="supplement" className="flex-1 sm:flex-none text-xs sm:text-sm">
+              <TabsTrigger value="supplement" className="shrink-0 text-xs sm:text-sm px-2.5 sm:px-3">
                 Дополнить
               </TabsTrigger>
             </TabsList>
+            </div>
           </div>
 
           <TabsContent value="all" className="space-y-3">

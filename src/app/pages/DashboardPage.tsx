@@ -9,6 +9,7 @@ import { Card } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { GraduationCap, TrendingUp, Users, Coins, Search, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ActivityBanner } from '../components/ActivityBanner';
 
 type UniversityCategory = 'tech' | 'humanities' | 'medical';
 
@@ -133,7 +134,11 @@ export function DashboardPage() {
   }, [normalizedQuery, selectedCategory]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+    <>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
+        <ActivityBanner />
+      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
       {/* Stats Section */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <StatsCard
@@ -270,8 +275,8 @@ export function DashboardPage() {
               </div>
               <Badge variant="outline">Демо-данные</Badge>
             </div>
-            <div className="border rounded-lg">
-              <Table>
+            <div className="overflow-x-auto border rounded-lg">
+              <Table className="min-w-[480px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>ВУЗ</TableHead>
@@ -327,6 +332,7 @@ export function DashboardPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   );
 }
