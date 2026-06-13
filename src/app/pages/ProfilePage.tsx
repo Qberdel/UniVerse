@@ -5,7 +5,7 @@ import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { ActivityChart } from "../components/ActivityChart";
-import { Coins, Calendar, Activity, LayoutGrid, LogOut, PanelLeft, Pencil } from "lucide-react";
+import { Coins, Calendar, Activity, LayoutGrid, LogOut, PanelLeft, Pencil, GraduationCap } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -37,6 +37,8 @@ import {
   subscribeStudentClaimsUpdated,
   type StudentClaim,
 } from "../lib/claims";
+import { OnboardingDialog } from "../components/OnboardingDialog";
+import { markOnboardingSeen } from "../lib/onboarding";
 
 function getStatusBadgeVariant(status: StudentClaim["status"]): "default" | "secondary" | "outline" {
   if (status === "Принято") return "secondary";
@@ -55,6 +57,7 @@ function ProfileVariantCabinet({
     name: string;
     email: string;
     university: string;
+    specialty?: string;
     avatarDataUrl?: string;
     activeCoins: number;
     rank: number;
@@ -85,6 +88,11 @@ function ProfileVariantCabinet({
           <Badge variant="secondary" className="mb-3 sm:mb-4">
             {userData.university}
           </Badge>
+          {userData.specialty && (
+            <Badge variant="outline" className="mb-3 sm:mb-4 max-w-full truncate">
+              {userData.specialty}
+            </Badge>
+          )}
 
           <div className="w-full space-y-3 sm:space-y-4 mt-3 sm:mt-4">
             <div className="p-3 sm:p-4 bg-muted rounded-lg">
@@ -335,6 +343,7 @@ function ProfileVariantCompact({
     name: string;
     email: string;
     university: string;
+    specialty?: string;
     avatarDataUrl?: string;
     activeCoins: number;
     rank: number;
@@ -361,9 +370,14 @@ function ProfileVariantCompact({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base sm:text-lg truncate">{userData.name}</h2>
               <Badge variant="secondary">{userData.university}</Badge>
+              {userData.specialty && (
+                <Badge variant="outline" className="max-w-[200px] truncate">
+                  {userData.specialty}
+                </Badge>
+              )}
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground truncate">{userData.email}</p>
           </div>
@@ -431,6 +445,7 @@ export function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const supplementFileRef = useRef<HTMLInputElement | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [supplementOpen, setSupplementOpen] = useState(false);
   const [supplementText, setSupplementText] = useState("");
   const [supplementPhotoDataUrl, setSupplementPhotoDataUrl] = useState<string | undefined>(undefined);
@@ -505,6 +520,7 @@ export function ProfilePage() {
     name: profile.name,
     email: profile.email,
     university: profile.university,
+    specialty: profile.specialty,
     avatarDataUrl: profile.avatarDataUrl,
     activeCoins: 25430,
     rank: 142,
@@ -629,6 +645,15 @@ export function ProfilePage() {
             Компактный
           </Button>
 
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setOnboardingOpen(true)}
+          >
+            <GraduationCap className="w-4 h-4 mr-2" />
+            Обучение
+          </Button>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="outline">
@@ -666,6 +691,7 @@ export function ProfilePage() {
             name: userData.name,
             email: userData.email,
             university: userData.university,
+            specialty: userData.specialty,
             avatarDataUrl: userData.avatarDataUrl,
             activeCoins: userData.activeCoins,
             rank: userData.rank,
@@ -732,6 +758,12 @@ export function ProfilePage() {
                 <Label htmlFor="profile-university">Университет</Label>
                 <Input id="profile-university" value={profile.university} disabled />
               </div>
+              {profile.specialty && (
+                <div className="space-y-2">
+                  <Label htmlFor="profile-specialty">Специальность</Label>
+                  <Input id="profile-specialty" value={profile.specialty} disabled />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="profile-email">Почта</Label>
                 <Input
@@ -842,6 +874,12 @@ export function ProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OnboardingDialog
+        open={onboardingOpen}
+        onOpenChange={setOnboardingOpen}
+        onComplete={() => markOnboardingSeen()}
+      />
     </div>
   );
 }

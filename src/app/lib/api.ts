@@ -181,3 +181,75 @@ export async function profileRequest(token: string): Promise<ApiResult<unknown>>
     return { ok: false, error: "Не удалось подключиться к API" };
   }
 }
+
+/** Разбор списка строк из разных форматов ответа API */
+export function parseStringList(data: unknown): string[] {
+  if (data == null) return [];
+
+  if (Array.isArray(data)) {
+    const items: string[] = [];
+    for (const item of data) {
+      if (typeof item === "string" && item.trim()) {
+        items.push(item.trim());
+        continue;
+      }
+      if (item != null && typeof item === "object") {
+        const o = item as Record<string, unknown>;
+        const label = pickString(o, ["name", "title", "label", "value", "specialty", "university"]);
+        if (label) items.push(label);
+      }
+    }
+    return items;
+  }
+
+  if (typeof data === "object") {
+    const o = data as Record<string, unknown>;
+    for (const key of ["data", "items", "results", "universities", "specialties", "specialities"]) {
+      const nested = o[key];
+      if (nested != null) {
+        const parsed = parseStringList(nested);
+        if (parsed.length) return parsed;
+      }
+    }
+  }
+
+  return [];
+}
+
+async function fetchStringList(path: string): Promise<ApiResult<string[]>> {
+  if (!API_BASE_URL) {
+    return { ok: false, error: "API не настроен" };
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`);
+    const text = await response.text();
+    let data: unknown;
+    try {
+      data = text ? JSON.parse(text) : undefined;
+    } catch {
+      data = text || undefined;
+    }
+
+    if (!response.ok) {
+      return { ok: false, error: extractApiError(data, "Ошибка загрузки списка") };
+    }
+
+    const list = parseStringList(data);
+    if (!list.length) {
+      return { ok: false, error: "Сервер вернул пустой список" };
+    }
+
+    return { ok: true, data: list };
+  } catch {
+    return { ok: false, error: "Не удалось подключиться к API" };
+  }
+}
+
+export async function fetchUniversitiesRequest(): Promise<ApiResult<string[]>> {
+  return fetchStringList("/universities");
+}
+
+export async function fetchSpecialtiesRequest(): Promise<ApiResult<string[]>> {
+  return fetchStringList("/specialties");
+}

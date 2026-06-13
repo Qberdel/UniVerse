@@ -22,7 +22,7 @@ export function NotFoundPage() {
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild>
-            <Link to="/">На главную</Link>
+            <Link to="/dashboard">На главную</Link>
           </Button>
         </div>
       </Card>

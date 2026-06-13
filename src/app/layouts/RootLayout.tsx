@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from "react-router";
-import { GraduationCap, Home, Menu as MenuIcon, User, Plus, ShieldCheck } from 'lucide-react';
+import { GraduationCap, Home, Menu as MenuIcon, User, Plus, ShieldCheck, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '../components/ui/sheet';
 
 const NAV_LINKS = [
-  { path: '/', icon: Home, label: 'Главная' },
+  { path: '/', icon: Info, label: 'О нас' },
+  { path: '/dashboard', icon: Home, label: 'Главная' },
   { path: '/menu', icon: MenuIcon, label: 'Товары' },
-  { path: '/add-activity', icon: Plus, label: 'Добавить' },
+  { path: '/add-activity', icon: Plus, label: 'Добавить заявку' },
   { path: '/profile', icon: User, label: 'Профиль' },
   { path: '/moderator', icon: ShieldCheck, label: 'Модерация' },
 ];
@@ -17,8 +18,8 @@ export function RootLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => {
-    if (path === '/') {
-      return location.pathname === '/';
+    if (path === '/' || path === '/dashboard') {
+      return location.pathname === path;
     }
     return location.pathname.startsWith(path);
   };
@@ -102,6 +103,11 @@ export function RootLayout() {
       <footer className="mt-8 sm:mt-16 pt-6 sm:pt-8 border-t text-center text-xs sm:text-sm text-muted-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-6 sm:pb-8">
           <p>© 2026 UniVerse - Система активности университетов</p>
+          <p className="mt-2">
+            <Link to="/privacy" className="text-primary hover:underline">
+              Политика конфиденциальности
+            </Link>
+          </p>
           <p className="mt-2">Обновлено: Апрель 2026</p>
         </div>
       </footer>

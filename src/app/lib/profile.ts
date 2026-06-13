@@ -4,6 +4,7 @@ import { parseAuthUserPayload, profileRequest } from "./api";
 export type UserProfile = {
   name: string;
   university: string;
+  specialty?: string;
   email: string;
   avatarDataUrl?: string;
 };

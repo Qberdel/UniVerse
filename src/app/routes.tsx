@@ -12,6 +12,8 @@ import { AddActivityPage } from "./pages/AddActivityPage";
 import { ModeratorPage } from "./pages/ModeratorPage";
 import { CompareUniversitiesPage } from "./pages/CompareUniversitiesPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { AboutPage } from "./pages/AboutPage";
+import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { isRegistered } from "./lib/auth";
 
 export const router = createBrowserRouter([
@@ -19,7 +21,15 @@ export const router = createBrowserRouter([
     path: "/",
     Component: RootLayout,
     children: [
-      { index: true, Component: DashboardPage },
+      {
+        index: true,
+        loader: () => {
+          if (isRegistered()) return redirect("/dashboard");
+          return null;
+        },
+        Component: AboutPage,
+      },
+      { path: "dashboard", Component: DashboardPage },
       { path: "register", Component: RegistrationPage },
       { path: "login", Component: LoginPage },
       { path: "forgot-password", Component: ForgotPasswordPage },
@@ -37,6 +47,7 @@ export const router = createBrowserRouter([
       { path: "add-activity", Component: AddActivityPage },
       { path: "moderator", Component: ModeratorPage },
       { path: "compare", Component: CompareUniversitiesPage },
+      { path: "privacy", Component: PrivacyPolicyPage },
       { path: "*", Component: NotFoundPage },
     ],
   },
