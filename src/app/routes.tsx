@@ -24,10 +24,6 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        loader: () => {
-          if (isRegistered()) return redirect("/dashboard");
-          return null;
-        },
         Component: AboutPage,
       },
       { path: "dashboard", Component: DashboardPage },

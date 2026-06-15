@@ -9,10 +9,14 @@ import {
   BarChart3,
   ShoppingBag,
   FilePlus,
+  User,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { isRegistered } from '../lib/auth';
+import { getProfile } from '../lib/profile';
 
 const FEATURES = [
   {
@@ -60,7 +64,21 @@ const STATS = [
   { value: '+12%', label: 'рост активности за год' },
 ];
 
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export function AboutPage() {
+  const registered = isRegistered();
+  const profile = registered ? getProfile() : null;
+  const displayName = profile?.name?.trim() || 'Пользователь';
+
   return (
     <div>
       {/* Hero */}
@@ -79,22 +97,68 @@ export function AboutPage() {
               Прозрачная система мотивации для студентов и аналитика для университетов.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <Link to="/register">
-                <Button size="lg" className="w-full sm:w-auto">
-                  Начать работу
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-              <Link to="/login">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                  Войти в аккаунт
-                </Button>
-              </Link>
-              <Link to="/dashboard">
-                <Button variant="ghost" size="lg" className="w-full sm:w-auto">
-                  Смотреть рейтинг
-                </Button>
-              </Link>
+              {registered ? (
+                <Card className="w-full sm:flex-1 p-5 sm:p-6 bg-card/90 border-primary/15 shadow-sm">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5">
+                    <Avatar className="w-16 h-16 sm:w-20 sm:h-20 ring-2 ring-primary/20 shrink-0">
+                      {profile?.avatarDataUrl && (
+                        <AvatarImage src={profile.avatarDataUrl} alt={displayName} />
+                      )}
+                      <AvatarFallback className="text-lg sm:text-xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                        {getInitials(displayName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-center sm:text-left min-w-0">
+                      <p className="text-sm text-muted-foreground mb-1">Добро пожаловать!</p>
+                      <h2 className="text-xl sm:text-2xl font-medium mb-2 truncate">{displayName}</h2>
+                      {profile?.university && profile.university !== '—' && (
+                        <Badge variant="secondary" className="mb-4 max-w-full truncate">
+                          {profile.university}
+                        </Badge>
+                      )}
+                      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 justify-center sm:justify-start">
+                        <Link to="/dashboard">
+                          <Button size="sm" className="w-full sm:w-auto">
+                            Перейти к рейтингу
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        </Link>
+                        <Link to="/profile">
+                          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                            <User className="w-4 h-4 mr-2" />
+                            Мой профиль
+                          </Button>
+                        </Link>
+                        <Link to="/add-activity">
+                          <Button variant="ghost" size="sm" className="w-full sm:w-auto">
+                            <FilePlus className="w-4 h-4 mr-2" />
+                            Добавить заявку
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <>
+                  <Link to="/register">
+                    <Button size="lg" className="w-full sm:w-auto">
+                      Начать работу
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                  <Link to="/login">
+                    <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                      Войти в аккаунт
+                    </Button>
+                  </Link>
+                  <Link to="/dashboard">
+                    <Button variant="ghost" size="lg" className="w-full sm:w-auto">
+                      Смотреть рейтинг
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -190,29 +254,61 @@ export function AboutPage() {
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-20">
         <Card className="p-8 sm:p-12 text-center bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-0">
-          <h2 className="text-xl sm:text-2xl mb-3 text-primary-foreground">
-            Присоединяйтесь к UniVerse
-          </h2>
-          <p className="text-primary-foreground/80 mb-6 sm:mb-8 max-w-xl mx-auto text-sm sm:text-base">
-            Создайте аккаунт за минуту и начните отслеживать активность, подавать заявки
-            и участвовать в рейтинге вашего университета.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/register">
-              <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                Зарегистрироваться
-              </Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full sm:w-auto bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-              >
-                Перейти к рейтингу
-              </Button>
-            </Link>
-          </div>
+          {registered ? (
+            <>
+              <h2 className="text-xl sm:text-2xl mb-3 text-primary-foreground">
+                Рады видеть вас снова, {displayName.split(' ')[0]}!
+              </h2>
+              <p className="text-primary-foreground/80 mb-6 sm:mb-8 max-w-xl mx-auto text-sm sm:text-base">
+                Продолжайте подавать заявки на активность, копите АК и помогайте вашему
+                университету подниматься в рейтинге.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link to="/add-activity">
+                  <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+                    <FilePlus className="w-4 h-4 mr-2" />
+                    Подать заявку
+                  </Button>
+                </Link>
+                <Link to="/profile">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full sm:w-auto bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Открыть профиль
+                  </Button>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl sm:text-2xl mb-3 text-primary-foreground">
+                Присоединяйтесь к UniVerse
+              </h2>
+              <p className="text-primary-foreground/80 mb-6 sm:mb-8 max-w-xl mx-auto text-sm sm:text-base">
+                Создайте аккаунт за минуту и начните отслеживать активность, подавать заявки
+                и участвовать в рейтинге вашего университета.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link to="/register">
+                  <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+                    Зарегистрироваться
+                  </Button>
+                </Link>
+                <Link to="/dashboard">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full sm:w-auto bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  >
+                    Перейти к рейтингу
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
         </Card>
       </section>
     </div>
