@@ -226,7 +226,11 @@ export function RegistrationPage() {
             </div>
 
             <p className="text-xs sm:text-sm text-muted-foreground text-center leading-relaxed">
-              Регистрируясь, вы соглашаетеся с{' '}
+              Регистрируясь, вы соглашаетесь с{' '}
+              <Link to="/terms" className="text-primary hover:underline">
+                пользовательским соглашением
+              </Link>{' '}
+              и{' '}
               <Link to="/privacy" className="text-primary hover:underline">
                 политикой конфиденциальности
               </Link>
