@@ -10,38 +10,43 @@
 - `src/app/layouts/RootLayout.tsx` - общий каркас: шапка, навигация, подвал, `Outlet`.
 - `src/app/pages/*` - страницы приложения (бизнес-экраны).
 - `src/app/components/*` - прикладные переиспользуемые компоненты (`ActivityChart`, `StatsCard`, `UniversityCard`, `AuthPageShell`).
-- `src/app/lib/auth.ts` - флаг регистрации в `localStorage`.
-- `src/app/lib/profile.ts` - профиль пользователя в `localStorage`.
+- `src/app/lib/auth.ts` - JWT cookie и флаг регистрации в `localStorage`.
+- `src/app/lib/api.ts` - HTTP-клиент backend API (`register`, `login`, `profile`, справочники).
+- `src/app/lib/profile.ts` - профиль пользователя в `localStorage` + синхронизация с API.
+- `src/app/lib/claims.ts` - история заявок в `localStorage` (демо).
 - `src/styles/*` - глобальные стили и тема.
+- `.env` / `.env.example` - `VITE_API_BASE_URL` для подключения к backend.
+- `VALIDATION_AND_BACKEND.txt` - временная справка по валидации и API.
 
 ## 2) Карта страниц (роуты)
 
-- `/` - главная (`DashboardPage`): рейтинг ВУЗов + аналитика.
-- `/register` - регистрация (`RegistrationPage`).
-- `/login` - вход (`LoginPage`).
-- `/forgot-password` - восстановление пароля (`ForgotPasswordPage`).
-- `/profile` - профиль (`ProfilePage`), защищенный маршрут.
+- `/` - о проекте (`AboutPage`).
+- `/dashboard` - рейтинг ВУЗов + аналитика (`DashboardPage`).
+- `/register` - регистрация (`RegistrationPage`, API).
+- `/login` - вход (`LoginPage`, API, JWT).
+- `/forgot-password` - восстановление пароля (`ForgotPasswordPage`, демо).
+- `/profile` - профиль (`ProfilePage`), защищённый маршрут (loader → `/register`).
+- `/add-activity` - создание заявки (`AddActivityPage`); без регистрации — экран «Доступ ограничен».
 - `/university/:id` - карточка университета (`UniversityPage`).
 - `/compare` - сравнение университетов (`CompareUniversitiesPage`).
-- `/add-activity` - создание заявки/активности (`AddActivityPage`).
 - `/moderator` - модерация (`ModeratorPage`).
-- `/menu`, `/cart` - дополнительные сервисные страницы.
+- `/menu`, `/cart` - каталог товаров и корзина (демо).
 
 ## 3) Существующая логика проекта
 
 ### Авторизация и доступ
 
-- Проект работает как frontend-демо без backend.
-- Факт регистрации хранится в `localStorage` (`universe:isRegistered`).
-- При входе/регистрации устанавливается флаг регистрации.
-- Страница `/profile` проверяется через loader в роутинге:
-  - если пользователь не зарегистрирован -> редирект на `/register`.
+- Регистрация и вход работают через backend API (`api.ts`).
+- JWT хранится в cookie (`universe_token`), флаг сессии — в `localStorage` (`universe:isRegistered`).
+- `isRegistered()` = true, если есть JWT или флаг `"1"`.
+- `/profile` — loader: редирект на `/register`, если не авторизован.
+- `/add-activity` — проверка `isRegistered()` в компоненте: форма скрыта, показывается сообщение о необходимости регистрации.
 
 ### Профиль пользователя
 
-- Данные профиля (`name`, `email`, `university`, `avatarDataUrl`) хранятся в `localStorage` (`universe:profile`).
-- В профиле можно редактировать email и аватар через модальное окно.
-- Выход из аккаунта очищает auth-флаг и профиль, затем переводит на `/login`.
+- Данные профиля (`name`, `email`, `university`, `specialty`, `avatarDataUrl`) в `localStorage` (`universe:profile`).
+- После входа — `GET /profile` для проверки доступа.
+- Выход очищает cookie, флаг и профиль → `/login`.
 
 ### История заявок в профиле
 
@@ -64,4 +69,5 @@
 
 - Архитектура модульная: `pages` + `components` + `lib`.
 - UI-слой вынесен в отдельные переиспользуемые компоненты.
-- Проект готов к следующему этапу: подключение API и перевод демо-данных в серверные.
+- Auth и справочники регистрации подключены к backend; остальные экраны — преимущественно демо-данные.
+- Подробности валидации и API — в `VALIDATION_AND_BACKEND.txt` и `FUNCTIONALITY.md`.

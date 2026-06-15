@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -8,12 +8,56 @@ import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Calendar } from '../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
-import { Plus, Calendar as CalendarIcon, Upload } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Upload, ShieldAlert, LogIn, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { isRegistered } from '../lib/auth';
+
+function AddActivityUnauthorized() {
+  return (
+    <div className="relative overflow-hidden max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-14 min-h-[calc(100vh-220px)] flex items-center justify-center">
+      <div className="pointer-events-none absolute inset-0 opacity-40">
+        <div className="absolute -top-12 -left-12 w-56 h-56 rounded-full bg-primary/20 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-16 -right-16 w-64 h-64 rounded-full bg-destructive/20 blur-3xl animate-pulse" />
+      </div>
+
+      <Card className="relative z-10 w-full max-w-2xl p-8 sm:p-10 text-center animate-in fade-in zoom-in-95 duration-500">
+        <div className="mx-auto mb-5 w-16 h-16 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h1 className="text-xl sm:text-2xl mb-3">Доступ ограничен</h1>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-6 text-left">
+          Чтобы составить заявку на активность, сначала зарегистрируйтесь в UniVerse и войдите в аккаунт.
+        </div>
+        <p className="text-sm sm:text-base text-muted-foreground mb-7">
+          После регистрации вы сможете отправлять заявки на модерацию и получать АК за подтверждённые активности.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button asChild>
+            <Link to="/register">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Зарегистрироваться
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/login">
+              <LogIn className="w-4 h-4 mr-2" />
+              Войти
+            </Link>
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 export function AddActivityPage() {
   const navigate = useNavigate();
+  const registered = isRegistered();
+
+  if (!registered) {
+    return <AddActivityUnauthorized />;
+  }
   const [date, setDate] = useState<Date>();
   const [formData, setFormData] = useState({
     title: '',

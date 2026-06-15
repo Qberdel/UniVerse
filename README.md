@@ -1,6 +1,6 @@
 ## UniVerse V4
 
-Веб-приложение (демо) для системы активности университетов: рейтинг ВУЗов, карточки университетов, сравнение, профиль пользователя, модерация и формы авторизации.
+Веб-приложение для системы активности университетов: рейтинг ВУЗов, карточки университетов, сравнение, профиль пользователя, модерация, формы авторизации и подключение к backend API (регистрация, вход, профиль).
 
 ## Технологический стек
 
@@ -9,11 +9,14 @@
 - `react-router` для маршрутизации
 - `Tailwind CSS` + набор UI-компонентов (`src/app/components/ui`)
 - `lucide-react` для иконок
-- Локальное состояние через React hooks и `localStorage` (без backend API в текущей версии)
+- Локальное состояние через React hooks, `localStorage` и cookie (JWT)
+- Backend API через `fetch` (`src/app/lib/api.ts`, базовый URL из `.env`)
 
 ## Быстрый старт
 
 ```bash
+cp .env.example .env
+# Укажите VITE_API_BASE_URL в .env
 npm install
 npm run dev
 ```
@@ -42,8 +45,10 @@ src/
       ActivityChart.tsx
       StatsCard.tsx
     lib/
-      auth.ts                 # Флаги авторизации в localStorage
+      auth.ts                 # JWT cookie, флаг регистрации
+      api.ts                  # HTTP-клиент backend API
       profile.ts              # Профиль пользователя в localStorage
+      claims.ts               # История заявок (localStorage, демо)
   styles/
     index.css
     theme.css
@@ -63,42 +68,44 @@ src/
 
 Основные маршруты:
 
-- `/` - главная (рейтинг + аналитика)
-- `/register` - регистрация
-- `/login` - вход
-- `/forgot-password` - восстановление пароля
+- `/` - о проекте (`AboutPage`)
+- `/dashboard` - рейтинг и аналитика ВУЗов
+- `/register` - регистрация (API `POST /register`)
+- `/login` - вход (API `POST /login`, JWT в cookie)
+- `/forgot-password` - восстановление пароля (демо)
 - `/profile` - профиль (защищён проверкой регистрации)
+- `/add-activity` - добавление заявки (доступ только для зарегистрированных)
 - `/university/:id` - страница конкретного ВУЗа
 - `/compare` - сравнение ВУЗов (демо)
-- `/cart`, `/menu`, `/add-activity`, `/moderator` - дополнительные экраны
+- `/cart`, `/menu`, `/moderator` - дополнительные экраны
 
-Защита `/profile` реализована в `loader`: если `isRegistered()` возвращает `false`, происходит `redirect('/register')`.
+Защита маршрутов:
+
+- `/profile` — `loader`: если `isRegistered()` возвращает `false`, редирект на `/register`.
+- `/add-activity` — в `AddActivityPage`: если пользователь не зарегистрирован, показывается экран «Доступ ограничен» с предложением зарегистрироваться или войти.
 
 ### 3) Хранение пользовательских данных
 
-Используется `localStorage`:
+- **JWT** — cookie `universe_token` (`auth.ts`)
+- **Флаг сессии** — `localStorage` ключ `universe:isRegistered`
+- **Профиль** — `localStorage` ключ `universe:profile` (`profile.ts`)
+- **Заявки (демо)** — `localStorage` ключ `universe:studentClaims` (`claims.ts`)
 
-- `src/app/lib/auth.ts`:
-  - `isRegistered()` - проверка флага регистрации
-  - `setRegistered(value)` - установка флага
-  - `clearAuth()` - сброс
-- `src/app/lib/profile.ts`:
-  - `getProfile()` / `setProfile(profile)` / `clearProfile()`
-
-Это демо-хранилище на клиенте; серверной синхронизации пока нет.
+Подробнее о валидации и API — в `VALIDATION_AND_BACKEND.txt` и `FUNCTIONALITY.md`.
 
 ## Где и как написаны страницы
 
 Все страницы лежат в `src/app/pages`.
 
-- `DashboardPage.tsx`: главная витрина, рейтинг ВУЗов, фильтры, аналитика и графики.
+- `AboutPage.tsx`: лендинг «О проекте», CTA для входа/регистрации.
+- `DashboardPage.tsx`: рейтинг ВУЗов, фильтры, аналитика и графики.
 - `UniversityPage.tsx`: детальная страница университета (статы, история, топ студентов, инфо).
 - `CompareUniversitiesPage.tsx`: демо-сравнение двух ВУЗов.
-- `RegistrationPage.tsx`, `LoginPage.tsx`, `ForgotPasswordPage.tsx`: auth-сценарии.
-- `ProfilePage.tsx`: личный профиль (данные пользователя из `localStorage`).
+- `RegistrationPage.tsx`, `LoginPage.tsx`, `ForgotPasswordPage.tsx`: auth-сценарии с backend API.
+- `ProfilePage.tsx`: личный профиль, история заявок, проверка `GET /profile`.
+- `AddActivityPage.tsx`: форма добавления активности; для неавторизованных — экран ошибки доступа.
 - `ModeratorPage.tsx`: экран модерации (демо-функциональность).
-- `AddActivityPage.tsx`: форма добавления активности.
-- `MenuPage.tsx`, `CartPage.tsx`, `PersonalCabinetPage.tsx`: дополнительные интерфейсные страницы.
+- `MenuPage.tsx`, `CartPage.tsx`: каталог товаров и корзина (демо).
 
 ## Что уже оптимизировано
 
@@ -110,4 +117,4 @@ src/
   - добавлена `useMemo`-фильтрация по поиску и категории;
   - убран неиспользуемый элемент фильтра.
 - В `RootLayout` вынесен массив навигации в константу вне компонента.
-  
+- На `/add-activity` добавлена проверка регистрации с UI в стиле сайта.

@@ -6,6 +6,8 @@
 
 - `README.md` - основная документация: стек, запуск, структура, архитектура.
 - `PROJECT_MAP.md` - эта карта файлов и страниц проекта.
+- `VALIDATION_AND_BACKEND.txt` - временная справка: валидация форм и подключение к API.
+- `.env.example` - шаблон переменной `VITE_API_BASE_URL` для backend.
 - `ATTRIBUTIONS.md` - список атрибуций/источников для используемых материалов.
 - `index.html` - HTML-шаблон приложения, контейнер `#root` для React.
 - `package.json` - зависимости и npm-скрипты (`dev`, `build`).
@@ -36,16 +38,20 @@
 - `src/app/pages/RegistrationPage.tsx` - регистрация пользователя.
 - `src/app/pages/LoginPage.tsx` - вход пользователя.
 - `src/app/pages/ForgotPasswordPage.tsx` - восстановление пароля (демо-поток).
-- `src/app/pages/AddActivityPage.tsx` - добавление новой активности/заявки.
+- `src/app/pages/AddActivityPage.tsx` - добавление новой активности/заявки; для неавторизованных — экран «Доступ ограничен».
 - `src/app/pages/ModeratorPage.tsx` - модерация заявок и действий (демо).
 - `src/app/pages/MenuPage.tsx` - дополнительная страница меню/навигации.
 - `src/app/pages/CartPage.tsx` - страница корзины/выбранных элементов.
 - `src/app/pages/PersonalCabinetPage.tsx` - альтернативный вариант личного кабинета.
 
-## 5) Бизнес-логика и локальное хранилище
+## 5) Бизнес-логика, API и локальное хранилище
 
-- `src/app/lib/auth.ts` - работа с флагом регистрации/авторизации в `localStorage`.
-- `src/app/lib/profile.ts` - чтение/запись профиля пользователя в `localStorage`.
+- `src/app/lib/auth.ts` - JWT в cookie, флаг регистрации в `localStorage`, `isRegistered()`.
+- `src/app/lib/api.ts` - HTTP-клиент: `register`, `login`, `profile`, списки ВУЗов/специальностей.
+- `src/app/lib/profile.ts` - чтение/запись профиля пользователя в `localStorage`, загрузка с API.
+- `src/app/lib/claims.ts` - история заявок студента в `localStorage` (демо).
+- `src/app/lib/registration-options.ts` - загрузка списков для формы регистрации.
+- `src/app/lib/onboarding.ts` - флаг прохождения onboarding после регистрации.
 
 ## 6) Компоненты предметной области
 
@@ -116,14 +122,16 @@
 
 ## 9) Навигационная карта страниц
 
-- `/` - `DashboardPage`
+- `/` - `AboutPage`
+- `/dashboard` - `DashboardPage`
 - `/register` - `RegistrationPage`
 - `/login` - `LoginPage`
 - `/forgot-password` - `ForgotPasswordPage`
-- `/profile` - `ProfilePage` (защищен проверкой регистрации)
+- `/profile` - `ProfilePage` (loader: редирект на `/register`, если не авторизован)
 - `/university/:id` - `UniversityPage`
 - `/compare` - `CompareUniversitiesPage`
-- `/add-activity` - `AddActivityPage`
+- `/add-activity` - `AddActivityPage` (только для зарегистрированных; иначе экран ошибки)
 - `/moderator` - `ModeratorPage`
 - `/menu` - `MenuPage`
 - `/cart` - `CartPage`
+- `/privacy`, `/terms` - юридические страницы

@@ -1,0 +1,108 @@
+================================================================================
+UniVerse V4 — Временная справка: валидация и подключение к backend
+(файл можно удалить после ознакомления)
+================================================================================
+
+1. ПОДКЛЮЧЕНИЕ К BACKEND
+------------------------
+
+Базовый URL API задаётся переменной окружения VITE_API_BASE_URL (файл .env,
+шаблон — .env.example). При сборке Vite подставляет значение в клиентский код.
+
+Центральный модуль: src/app/lib/api.ts
+  - API_BASE_URL — константа из import.meta.env.VITE_API_BASE_URL
+  - Все запросы идут через fetch() к {API_BASE_URL}/<endpoint>
+
+Реализованные эндпоинты:
+  POST /register     — регистрация (email, password, username, university)
+  POST /login        — вход (email, password), в ответе JWT
+  GET  /profile      — проверка доступа (Authorization: Bearer <token>)
+  GET  /universities — список ВУЗов для формы регистрации
+  GET  /specialties  — список специальностей для формы регистрации
+
+Обработка ошибок API (extractApiError в api.ts):
+  - Парсит JSON-ответ и извлекает message, error, detail или errors[]
+  - При сетевой ошибке возвращает «Не удалось подключиться к API»
+  - При отсутствии VITE_API_BASE_URL — «API не настроен» / throw при register/login
+
+Хранение сессии (src/app/lib/auth.ts):
+  - JWT в cookie universe_token (Max-Age 7 дней, SameSite=Lax, Path=/)
+  - Флаг регистрации в localStorage: universe:isRegistered = "1" | "0"
+  - isRegistered() = true, если флаг "1" ИЛИ есть JWT в cookie
+
+Профиль пользователя (src/app/lib/profile.ts):
+  - localStorage ключ universe:profile (имя, email, университет, специальность, аватар)
+  - После login: loadProfileFromApi() — GET /profile + merge с локальными данными
+
+Заявки (src/app/lib/claims.ts):
+  - localStorage ключ universe:studentClaims — демо-история заявок в профиле
+  - Страница /add-activity пока не отправляет данные на сервер (демо submit)
+
+
+2. СУЩЕСТВУЮЩАЯ ВАЛИДАЦИЯ
+--------------------------
+
+2.1. HTML-атрибут required
+  - LoginPage, RegistrationPage, ForgotPasswordPage, AddActivityPage (форма)
+  - Браузер блокирует submit при пустых обязательных полях
+
+2.2. RegistrationPage (src/app/pages/RegistrationPage.tsx)
+  - Клиентская проверка: выбран университет и специальность
+  - Совпадение password и confirmPassword
+  - Перед submit: блокировка, если списки ВУЗов/специальностей не загрузились (optionsError)
+  - После API: отображение response.error в красном баннере
+  - UI ошибки: div с классами border-destructive/30 bg-destructive/10 text-destructive
+
+2.3. LoginPage (src/app/pages/LoginPage.tsx)
+  - required на email и password
+  - При ошибке API — тот же красный inline-баннер
+  - Кнопка «Войти» disabled во время submitting
+
+2.4. ForgotPasswordPage
+  - Regex email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  - Статус sent — информационный баннер (bg-muted)
+
+2.5. ProfilePage — дополнение заявки
+  - Тихий guard: if (!text && !hasPhoto) return — без сообщения пользователю
+
+2.6. AddActivityPage — доступ
+  - Проверка isRegistered() при открытии страницы
+  - Если пользователь не зарегистрирован / не авторизован — экран «Доступ ограничен»
+    с сообщением о необходимости регистрации (вместо формы заявки)
+
+2.7. Защита маршрутов (src/app/routes.tsx)
+  - /profile — loader: redirect на /register, если !isRegistered()
+  - /add-activity — проверка в компоненте AddActivityPage (экран ошибки, не редирект)
+
+2.8. Не используются (есть в ui/, но не подключены на страницах)
+  - react-hook-form, zod
+  - компонент Alert (alert.tsx)
+  - sonner Toaster
+
+
+3. ПОТОКИ ПОЛЬЗОВАТЕЛЯ
+----------------------
+
+Регистрация:
+  1. GET /universities, GET /specialties
+  2. Валидация формы → POST /register
+  3. Профиль в localStorage, setRegistered(false), onboarding → /login
+
+Вход:
+  1. POST /login → JWT в cookie, setRegistered(true)
+  2. loadProfileFromApi → GET /profile → /profile
+
+Добавление заявки:
+  1. Переход на /add-activity
+  2. isRegistered() === false → экран «сначала зарегистрируйтесь»
+  3. isRegistered() === true → форма (submit пока demo: alert + redirect /profile)
+
+
+4. НАСТРОЙКА ДЛЯ РАЗРАБОТКИ
+---------------------------
+
+  cp .env.example .env
+  # Указать реальный адрес API в VITE_API_BASE_URL
+  npm install && npm run dev
+
+================================================================================
