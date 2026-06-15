@@ -3,6 +3,14 @@ import { Link, useNavigate } from 'react-router';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { Mail, Lock } from 'lucide-react';
 import { setAuthToken, setRegistered } from '../lib/auth';
 import { loadProfileFromApi } from '../lib/profile';
@@ -13,6 +21,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -69,9 +78,13 @@ export function LoginPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <Label htmlFor="password">Пароль</Label>
-              <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline"
+                onClick={() => setForgotPasswordOpen(true)}
+              >
                 Забыли пароль?
-              </Link>
+              </button>
             </div>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -98,6 +111,37 @@ export function LoginPage() {
             Зарегистрироваться
           </Link>
         </div>
+
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Восстановление пароля</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 pt-1 text-left text-sm text-muted-foreground">
+                <p>
+                  Чтобы изменить пароль, напишите администратору на почту{' '}
+                  <a
+                    href="mailto:support@universe.ru"
+                    className="text-primary hover:underline font-medium"
+                  >
+                    support@universe.ru
+                  </a>
+                  .
+                </p>
+                <p>
+                  Письмо необходимо отправить с адреса электронной почты, на который вы
+                  зарегистрированы в UniVerse — так мы сможем подтвердить вашу личность.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-start">
+            <Button type="button" onClick={() => setForgotPasswordOpen(false)}>
+              Понятно
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AuthPageShell>
   );
 }
