@@ -14,6 +14,7 @@ import { CompareUniversitiesPage } from "./pages/CompareUniversitiesPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { AboutPage } from "./pages/AboutPage";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
+import { TermsOfServicePage } from "./pages/TermsOfServicePage";
 import { isRegistered } from "./lib/auth";
 
 export const router = createBrowserRouter([
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
       { path: "moderator", Component: ModeratorPage },
       { path: "compare", Component: CompareUniversitiesPage },
       { path: "privacy", Component: PrivacyPolicyPage },
+      { path: "terms", Component: TermsOfServicePage },
       { path: "*", Component: NotFoundPage },
     ],
   },

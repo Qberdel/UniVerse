@@ -103,9 +103,12 @@ export function RootLayout() {
       <footer className="mt-8 sm:mt-16 pt-6 sm:pt-8 border-t text-center text-xs sm:text-sm text-muted-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-6 sm:pb-8">
           <p>© 2026 UniVerse - Система активности университетов</p>
-          <p className="mt-2">
+          <p className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
             <Link to="/privacy" className="text-primary hover:underline">
               Политика конфиденциальности
+            </Link>
+            <Link to="/terms" className="text-primary hover:underline">
+              Пользовательское соглашение
             </Link>
           </p>
           <p className="mt-2">Обновлено: Апрель 2026</p>
