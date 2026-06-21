@@ -42,8 +42,9 @@ export function RegistrationPage() {
         setUniversities([]);
         setSpecialities([]);
       } else {
-        setUniversities(result.universities);
-        setSpecialities(result.specialities);
+        // данные находятся внутри result.data
+        setUniversities(result.universities ?? []);
+        setSpecialities(result.specialities ?? []);
         setOptionsError(null);
       }
       setOptionsLoading(false);
@@ -55,6 +56,11 @@ export function RegistrationPage() {
   }, []);
 
   const listsUnavailable = Boolean(optionsError) || optionsLoading;
+
+  // ✅ НОВОЕ: фильтрация специальностей по выбранному университету
+  const filteredSpecialities = formData.universityId
+    ? specialities.filter((s) => s.university_id === Number(formData.universityId))
+    : []; // пусто пока вуз не выбран
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,7 +201,14 @@ export function RegistrationPage() {
                 id="university"
                 items={universities}
                 value={formData.universityId}
-                onValueChange={(universityId) => setFormData({ ...formData, universityId })}
+                // сбрасываем специальность при смене университета
+                onValueChange={(universityId) =>
+                  setFormData({
+                    ...formData,
+                    universityId,
+                    specialityId: '',
+                  })
+                }
                 placeholder="Выберите университет"
                 searchPlaceholder="Поиск университета..."
                 emptyText="Университет не найден"
@@ -210,7 +223,8 @@ export function RegistrationPage() {
               <Label htmlFor="specialty">Специальность</Label>
               <SearchableSelect
                 id="specialty"
-                items={specialities}
+                // используем отфильтрованный список
+                items={filteredSpecialities}
                 value={formData.specialityId}
                 onValueChange={(specialityId) => setFormData({ ...formData, specialityId })}
                 placeholder="Выберите специальность"
@@ -218,7 +232,8 @@ export function RegistrationPage() {
                 emptyText="Специальность не найдена"
                 required
                 loading={optionsLoading}
-                disabled={listsUnavailable || specialities.length === 0}
+                // проверяем длину отфильтрованного списка
+                disabled={listsUnavailable || filteredSpecialities.length === 0}
                 className="group-hover:border-ring/50"
               />
             </div>
