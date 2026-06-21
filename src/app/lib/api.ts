@@ -13,9 +13,11 @@ export type ApiResult<T> = {
   error?: string;
 };
 
+// Добавлено опциональное поле university_id для специальностей
 export type RegistrationOption = {
   id: number;
   name: string;
+  university_id?: number; 
 };
 
 export type RegistrationOptionsData = {
@@ -120,10 +122,18 @@ function parseRegistrationOptionList(raw: unknown): RegistrationOption[] {
   for (const item of raw) {
     if (item == null || typeof item !== "object") continue;
     const o = item as Record<string, unknown>;
+    
     const id = o.id;
     const name = typeof o.name === "string" ? o.name.trim() : "";
+    // Парсим university_id, если он есть в объекте (для специальностей)
+    const university_id = typeof o.university_id === "number" ? o.university_id : undefined;
+
     if (typeof id === "number" && Number.isFinite(id) && name) {
-      items.push({ id, name });
+      const option: RegistrationOption = { id, name };
+      if (university_id !== undefined) {
+        option.university_id = university_id;
+      }
+      items.push(option);
     }
   }
   return items;
@@ -244,4 +254,3 @@ export async function profileRequest(token: string): Promise<ApiResult<unknown>>
     return { ok: false, error: "Не удалось подключиться к API" };
   }
 }
-
