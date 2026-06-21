@@ -54,7 +54,7 @@ export function SearchableSelect({
   const displayValue = selectedItem?.name ?? (items ? "" : value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}> {/* ✅ ДОБАВЛЕНО: modal={true} */}
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -76,11 +76,12 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[400px] p-0 z-50" 
+        className="w-[280px] p-0" // ✅ ИЗМЕНЕНО: было w-[var(--radix-popover-trigger-width)] или w-72
         align="start"
         side="bottom"
+        sideOffset={4} // ✅ ДОБАВЛЕНО: отступ снизу
       >
-        <Command>
+        <Command shouldFilter={true}> {/* ✅ ДОБАВЛЕНО: shouldFilter={true} */}
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
