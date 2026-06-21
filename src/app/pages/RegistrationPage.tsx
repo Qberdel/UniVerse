@@ -214,7 +214,7 @@ export function RegistrationPage() {
                 emptyText="Университет не найден"
                 required
                 loading={optionsLoading}
-                disabled={listsUnavailable || universities.length === 0}
+                disabled={Boolean(optionsError)} // было disabled={listsUnavailable || universities.length === 0}
                 className="group-hover:border-ring/50"
               />
             </div>
