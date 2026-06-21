@@ -13,11 +13,23 @@ export type ApiResult<T> = {
   error?: string;
 };
 
+export type RegistrationOption = {
+  id: number;
+  name: string;
+};
+
+export type RegistrationOptionsData = {
+  universities: RegistrationOption[];
+  specialities: RegistrationOption[];
+};
+
 export type RegisterPayload = {
+  firstname: string;
+  lastname: string;
   email: string;
   password: string;
-  username?: string;
-  university?: string;
+  university_id: number;
+  speciality_id: number;
 };
 
 function extractApiError(data: unknown, fallback: string): string {
@@ -101,21 +113,40 @@ export function parseAuthUserPayload(data: unknown): AuthUserPayload {
   return { username: name, university, email };
 }
 
-export async function registerRequest(payload: RegisterPayload): Promise<ApiResult<unknown>> {
+function parseRegistrationOptionList(raw: unknown): RegistrationOption[] {
+  if (!Array.isArray(raw)) return [];
+
+  const items: RegistrationOption[] = [];
+  for (const item of raw) {
+    if (item == null || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const id = o.id;
+    const name = typeof o.name === "string" ? o.name.trim() : "";
+    if (typeof id === "number" && Number.isFinite(id) && name) {
+      items.push({ id, name });
+    }
+  }
+  return items;
+}
+
+export function parseRegistrationOptions(data: unknown): RegistrationOptionsData | null {
+  if (data == null || typeof data !== "object") return null;
+
+  const root = data as Record<string, unknown>;
+  const universities = parseRegistrationOptionList(root.universities);
+  const specialities = parseRegistrationOptionList(root.specialities ?? root.specialties);
+
+  if (!universities.length || !specialities.length) return null;
+  return { universities, specialities };
+}
+
+export async function fetchRegistrationOptionsRequest(): Promise<ApiResult<RegistrationOptionsData>> {
+  if (!API_BASE_URL) {
+    return { ok: false, error: "API не настроен" };
+  }
+
   try {
-    const body: Record<string, string> = {
-      email: payload.email,
-      password: payload.password,
-    };
-    if (payload.username?.trim()) body.username = payload.username.trim();
-    if (payload.university?.trim()) body.university = payload.university.trim();
-
-    const response = await fetch(`${getApiBaseUrl()}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
+    const response = await fetch(`${API_BASE_URL}/register`);
     const text = await response.text();
     let data: unknown;
     try {
@@ -125,9 +156,41 @@ export async function registerRequest(payload: RegisterPayload): Promise<ApiResu
     }
 
     if (!response.ok) {
-      return { ok: false, error: extractApiError(data, "Ошибка регистрации") };
+      return { ok: false, error: extractApiError(data, "Не удалось загрузить данные для регистрации") };
     }
-    return { ok: true, data };
+
+    const options = parseRegistrationOptions(data);
+    if (!options) {
+      return { ok: false, error: "Сервер вернул некорректные списки университетов и специальностей" };
+    }
+
+    return { ok: true, data: options };
+  } catch {
+    return { ok: false, error: "Не удалось подключиться к API" };
+  }
+}
+
+export async function registerRequest(payload: RegisterPayload): Promise<ApiResult<void>> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      return { ok: true };
+    }
+
+    const text = await response.text();
+    let data: unknown;
+    try {
+      data = text ? JSON.parse(text) : undefined;
+    } catch {
+      data = text || undefined;
+    }
+
+    return { ok: false, error: extractApiError(data, "Ошибка регистрации") };
   } catch {
     return { ok: false, error: "Не удалось подключиться к API" };
   }
@@ -182,74 +245,3 @@ export async function profileRequest(token: string): Promise<ApiResult<unknown>>
   }
 }
 
-/** Разбор списка строк из разных форматов ответа API */
-export function parseStringList(data: unknown): string[] {
-  if (data == null) return [];
-
-  if (Array.isArray(data)) {
-    const items: string[] = [];
-    for (const item of data) {
-      if (typeof item === "string" && item.trim()) {
-        items.push(item.trim());
-        continue;
-      }
-      if (item != null && typeof item === "object") {
-        const o = item as Record<string, unknown>;
-        const label = pickString(o, ["name", "title", "label", "value", "specialty", "university"]);
-        if (label) items.push(label);
-      }
-    }
-    return items;
-  }
-
-  if (typeof data === "object") {
-    const o = data as Record<string, unknown>;
-    for (const key of ["data", "items", "results", "universities", "specialties", "specialities"]) {
-      const nested = o[key];
-      if (nested != null) {
-        const parsed = parseStringList(nested);
-        if (parsed.length) return parsed;
-      }
-    }
-  }
-
-  return [];
-}
-
-async function fetchStringList(path: string): Promise<ApiResult<string[]>> {
-  if (!API_BASE_URL) {
-    return { ok: false, error: "API не настроен" };
-  }
-
-  try {
-    const response = await fetch(`${API_BASE_URL}${path}`);
-    const text = await response.text();
-    let data: unknown;
-    try {
-      data = text ? JSON.parse(text) : undefined;
-    } catch {
-      data = text || undefined;
-    }
-
-    if (!response.ok) {
-      return { ok: false, error: extractApiError(data, "Ошибка загрузки списка") };
-    }
-
-    const list = parseStringList(data);
-    if (!list.length) {
-      return { ok: false, error: "Сервер вернул пустой список" };
-    }
-
-    return { ok: true, data: list };
-  } catch {
-    return { ok: false, error: "Не удалось подключиться к API" };
-  }
-}
-
-export async function fetchUniversitiesRequest(): Promise<ApiResult<string[]>> {
-  return fetchStringList("/universities");
-}
-
-export async function fetchSpecialtiesRequest(): Promise<ApiResult<string[]>> {
-  return fetchStringList("/specialties");
-}

@@ -12,11 +12,18 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { cn } from "./ui/utils";
 
+export type SearchableSelectItem = {
+  id: number;
+  name: string;
+};
+
 type SearchableSelectProps = {
   id?: string;
-  options: readonly string[];
+  options?: readonly string[];
+  items?: readonly SearchableSelectItem[];
   value: string;
   onValueChange: (value: string) => void;
+  onItemChange?: (value: number) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
@@ -28,9 +35,11 @@ type SearchableSelectProps = {
 
 export function SearchableSelect({
   id,
-  options,
+  options = [],
+  items,
   value,
   onValueChange,
+  onItemChange,
   placeholder = "Выберите значение",
   searchPlaceholder = "Поиск...",
   emptyText = "Ничего не найдено",
@@ -41,6 +50,8 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const displayPlaceholder = loading ? "Загрузка..." : placeholder;
+  const selectedItem = items?.find((item) => String(item.id) === value);
+  const displayValue = selectedItem?.name ?? (items ? "" : value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -56,11 +67,11 @@ export function SearchableSelect({
           className={cn(
             "w-full justify-between font-normal h-9 transition-colors",
             "hover:border-ring/50",
-            !value && "text-muted-foreground",
+            !displayValue && "text-muted-foreground",
             className,
           )}
         >
-          <span className="truncate">{value || displayPlaceholder}</span>
+          <span className="truncate">{displayValue || displayPlaceholder}</span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -70,24 +81,44 @@ export function SearchableSelect({
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option}
-                  value={option}
-                  onSelect={() => {
-                    onValueChange(option);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 size-4",
-                      value === option ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                  {option}
-                </CommandItem>
-              ))}
+              {items
+                ? items.map((item) => (
+                    <CommandItem
+                      key={item.id}
+                      value={item.name}
+                      onSelect={() => {
+                        onValueChange(String(item.id));
+                        onItemChange?.(item.id);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 size-4",
+                          value === String(item.id) ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      {item.name}
+                    </CommandItem>
+                  ))
+                : options.map((option) => (
+                    <CommandItem
+                      key={option}
+                      value={option}
+                      onSelect={() => {
+                        onValueChange(option);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 size-4",
+                          value === option ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      {option}
+                    </CommandItem>
+                  ))}
             </CommandGroup>
           </CommandList>
         </Command>

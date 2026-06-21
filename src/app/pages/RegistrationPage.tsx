@@ -3,11 +3,11 @@ import { Link, useNavigate } from 'react-router';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
-import { Mail, Lock, User } from 'lucide-react';
+import { Mail, Lock, User, UserCircle } from 'lucide-react';
 import { setRegistered } from '../lib/auth';
 import { setProfile } from '../lib/profile';
 import { AuthPageShell } from '../components/AuthPageShell';
-import { registerRequest } from '../lib/api';
+import { registerRequest, type RegistrationOption } from '../lib/api';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { loadRegistrationOptions } from '../lib/registration-options';
 import { OnboardingDialog } from '../components/OnboardingDialog';
@@ -20,15 +20,16 @@ export function RegistrationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(true);
-  const [universities, setUniversities] = useState<string[]>([]);
-  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [universities, setUniversities] = useState<RegistrationOption[]>([]);
+  const [specialities, setSpecialities] = useState<RegistrationOption[]>([]);
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    university: '',
-    specialty: '',
+    universityId: '',
+    specialityId: '',
   });
 
   useEffect(() => {
@@ -39,10 +40,10 @@ export function RegistrationPage() {
       if (!result.ok) {
         setOptionsError(result.error);
         setUniversities([]);
-        setSpecialties([]);
+        setSpecialities([]);
       } else {
         setUniversities(result.universities);
-        setSpecialties(result.specialties);
+        setSpecialities(result.specialities);
         setOptionsError(null);
       }
       setOptionsLoading(false);
@@ -64,11 +65,19 @@ export function RegistrationPage() {
       return;
     }
 
-    if (!formData.university) {
+    if (!formData.firstName.trim()) {
+      setError('Введите имя');
+      return;
+    }
+    if (!formData.lastName.trim()) {
+      setError('Введите фамилию');
+      return;
+    }
+    if (!formData.universityId) {
       setError('Выберите университет из списка');
       return;
     }
-    if (!formData.specialty) {
+    if (!formData.specialityId) {
       setError('Выберите специальность из списка');
       return;
     }
@@ -77,13 +86,18 @@ export function RegistrationPage() {
       return;
     }
 
+    const university = universities.find((item) => String(item.id) === formData.universityId);
+    const speciality = specialities.find((item) => String(item.id) === formData.specialityId);
+
     setSubmitting(true);
     try {
       const response = await registerRequest({
+        firstname: formData.firstName.trim(),
+        lastname: formData.lastName.trim(),
         email: formData.email.trim(),
         password: formData.password,
-        username: formData.name.trim(),
-        university: formData.university.trim(),
+        university_id: Number(formData.universityId),
+        speciality_id: Number(formData.specialityId),
       });
 
       if (!response.ok) {
@@ -92,9 +106,9 @@ export function RegistrationPage() {
       }
 
       setProfile({
-        name: formData.name,
-        university: formData.university,
-        specialty: formData.specialty,
+        name: `${formData.lastName.trim()} ${formData.firstName.trim()}`,
+        university: university?.name ?? '',
+        specialty: speciality?.name,
         email: formData.email.trim(),
       });
       setRegistered(false);
@@ -123,17 +137,35 @@ export function RegistrationPage() {
                 {error}
               </div>
             )}
+            
             <div className="space-y-2 group">
-              <Label htmlFor="name">Имя пользователя</Label>
+              <Label htmlFor="firstName">Имя</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
-                  id="name"
+                  id="firstName"
                   type="text"
                   placeholder="Введите ваше имя"
                   className="pl-10 transition-colors hover:border-ring/50 group-hover:border-ring/50"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  required
+                  disabled={listsUnavailable}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 group">
+              <Label htmlFor="lastName">Фамилия</Label>
+              <div className="relative">
+                <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="Введите вашу фамилию"
+                  className="pl-10 transition-colors hover:border-ring/50 group-hover:border-ring/50"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   required
                   disabled={listsUnavailable}
                 />
@@ -161,9 +193,9 @@ export function RegistrationPage() {
               <Label htmlFor="university">Университет</Label>
               <SearchableSelect
                 id="university"
-                options={universities}
-                value={formData.university}
-                onValueChange={(university) => setFormData({ ...formData, university })}
+                items={universities}
+                value={formData.universityId}
+                onValueChange={(universityId) => setFormData({ ...formData, universityId })}
                 placeholder="Выберите университет"
                 searchPlaceholder="Поиск университета..."
                 emptyText="Университет не найден"
@@ -178,15 +210,15 @@ export function RegistrationPage() {
               <Label htmlFor="specialty">Специальность</Label>
               <SearchableSelect
                 id="specialty"
-                options={specialties}
-                value={formData.specialty}
-                onValueChange={(specialty) => setFormData({ ...formData, specialty })}
+                items={specialities}
+                value={formData.specialityId}
+                onValueChange={(specialityId) => setFormData({ ...formData, specialityId })}
                 placeholder="Выберите специальность"
                 searchPlaceholder="Поиск специальности..."
                 emptyText="Специальность не найдена"
                 required
                 loading={optionsLoading}
-                disabled={listsUnavailable || specialties.length === 0}
+                disabled={listsUnavailable || specialities.length === 0}
                 className="group-hover:border-ring/50"
               />
             </div>

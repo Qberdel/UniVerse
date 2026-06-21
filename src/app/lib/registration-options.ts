@@ -1,13 +1,13 @@
 import {
-  fetchUniversitiesRequest,
-  fetchSpecialtiesRequest,
+  fetchRegistrationOptionsRequest,
+  type RegistrationOption,
 } from "./api";
 
 export type RegistrationOptionsResult =
   | {
       ok: true;
-      universities: string[];
-      specialties: string[];
+      universities: RegistrationOption[];
+      specialities: RegistrationOption[];
     }
   | {
       ok: false;
@@ -15,28 +15,18 @@ export type RegistrationOptionsResult =
     };
 
 export async function loadRegistrationOptions(): Promise<RegistrationOptionsResult> {
-  const [universitiesRes, specialtiesRes] = await Promise.all([
-    fetchUniversitiesRequest(),
-    fetchSpecialtiesRequest(),
-  ]);
+  const result = await fetchRegistrationOptionsRequest();
 
-  if (!universitiesRes.ok) {
+  if (!result.ok) {
     return {
       ok: false,
-      error: universitiesRes.error ?? "Не удалось загрузить список университетов",
-    };
-  }
-
-  if (!specialtiesRes.ok) {
-    return {
-      ok: false,
-      error: specialtiesRes.error ?? "Не удалось загрузить список специальностей",
+      error: result.error ?? "Не удалось загрузить данные для регистрации",
     };
   }
 
   return {
     ok: true,
-    universities: universitiesRes.data!,
-    specialties: specialtiesRes.data!,
+    universities: result.data!.universities,
+    specialities: result.data!.specialities,
   };
 }

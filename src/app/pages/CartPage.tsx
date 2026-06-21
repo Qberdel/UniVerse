@@ -1,71 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Coins, Trash2, ShoppingBag } from 'lucide-react';
+import {
+  clearCart,
+  getCartItems,
+  removeCartLine,
+  subscribeCartUpdated,
+  type CartLineItem,
+} from '../lib/cart';
 
 export function CartPage() {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "Сертификат на экскурсию в лабораторию",
-      price: 500,
-      category: "Образование",
-      university: "МГУ",
-      image: "🔬"
-    },
-    {
-      id: 2,
-      name: "Футболка университета",
-      price: 300,
-      category: "Мерч",
-      university: "МГУ",
-      image: "👕"
-    },
-    {
-      id: 3,
-      name: "Скидка 20% в студенческой столовой",
-      price: 150,
-      category: "Питание",
-      university: "МГУ",
-      image: "🍽️"
-    },
-    {
-      id: 4,
-      name: "Доступ к онлайн-курсу",
-      price: 800,
-      category: "Образование",
-      university: "МГУ",
-      image: "💻"
-    },
-    {
-      id: 5,
-      name: "Билет на университетское мероприятие",
-      price: 200,
-      category: "Развлечения",
-      university: "МГУ",
-      image: "🎭"
-    },
-    {
-      id: 6,
-      name: "Книга из университетской библиотеки",
-      price: 400,
-      category: "Образование",
-      university: "МГУ",
-      image: "📚"
-    },
-  ]);
+  const [cartItems, setCartItems] = useState<CartLineItem[]>(() => getCartItems());
+
+  useEffect(() => subscribeCartUpdated(() => setCartItems(getCartItems())), []);
 
   const totalAK = cartItems.reduce((sum, item) => sum + item.price, 0);
 
-  const removeItem = (id: number) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
+  const handleRemoveItem = (lineId: string) => {
+    removeCartLine(lineId);
   };
 
   const handlePayment = () => {
     alert(`Оплата ${totalAK} АК успешно выполнена!`);
-    setCartItems([]);
+    clearCart();
   };
 
   if (cartItems.length === 0) {
@@ -74,7 +34,7 @@ export function CartPage() {
         <div className="text-center py-12 sm:py-16">
           <ShoppingBag className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="mb-2 text-xl sm:text-2xl">Корзина пуста</h2>
-          <p className="text-sm sm:text-base text-muted-foreground mb-6">Добавьте товары из меню</p>
+          <p className="text-sm sm:text-base text-muted-foreground mb-6">Добавьте товары из каталога</p>
           <Button asChild>
             <Link to="/menu">Перейти в товары</Link>
           </Button>
@@ -93,18 +53,17 @@ export function CartPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Items Grid */}
         <div className="lg:col-span-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {cartItems.map((item) => (
-              <Card key={item.id} className="p-3 sm:p-4 hover:shadow-lg transition-all">
+              <Card key={item.lineId} className="p-3 sm:p-4 hover:shadow-lg transition-all">
                 <div className="flex flex-col h-full">
                   <div className="flex items-start justify-between mb-2 sm:mb-3">
                     <div className="text-3xl sm:text-4xl">{item.image}</div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => handleRemoveItem(item.lineId)}
                       className="text-destructive hover:text-destructive h-8 w-8 sm:h-10 sm:w-10"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -115,7 +74,7 @@ export function CartPage() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant="secondary" className="text-xs">{item.category}</Badge>
+                      <Badge variant="secondary" className="text-xs">{item.categoryLabel}</Badge>
                       <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.university}</p>
                     </div>
 
@@ -133,7 +92,6 @@ export function CartPage() {
           </div>
         </div>
 
-        {/* Summary Card */}
         <div className="lg:col-span-1">
           <Card className="p-4 sm:p-6 lg:sticky lg:top-24">
             <h3 className="mb-4 sm:mb-6 text-base sm:text-lg">Итого</h3>
@@ -157,7 +115,7 @@ export function CartPage() {
             <Button className="w-full mb-3" onClick={handlePayment}>
               Оплатить {totalAK} АК
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => setCartItems([])}>
+            <Button variant="outline" className="w-full" onClick={clearCart}>
               Очистить корзину
             </Button>
 

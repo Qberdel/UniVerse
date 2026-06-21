@@ -1,127 +1,35 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Coins, Search, ShoppingCart, Plus } from 'lucide-react';
+import { MENU_CATEGORIES, MENU_ITEMS } from '../lib/menu-items';
+import { addToCart, getCartCount, subscribeCartUpdated } from '../lib/cart';
 
 export function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState<number[]>([]);
-
-  const categories = [
-    { id: 'all', name: 'Все', icon: '🎯' },
-    { id: 'education', name: 'Образование', icon: '📚' },
-    { id: 'merch', name: 'Мерч', icon: '👕' },
-    { id: 'food', name: 'Питание', icon: '🍽️' },
-    { id: 'entertainment', name: 'Развлечения', icon: '🎭' },
-    { id: 'sports', name: 'Спорт', icon: '⚽' },
-  ];
-
-  const items = [
-    {
-      id: 1,
-      name: "Сертификат на экскурсию в лабораторию",
-      price: 500,
-      category: "education",
-      university: "МГУ",
-      image: "🔬",
-      tags: ["наука", "лаборатория"]
-    },
-    {
-      id: 2,
-      name: "Футболка университета",
-      price: 300,
-      category: "merch",
-      university: "МГУ",
-      image: "👕",
-      tags: ["одежда", "мерч"]
-    },
-    {
-      id: 3,
-      name: "Скидка 20% в студенческой столовой",
-      price: 150,
-      category: "food",
-      university: "МГУ",
-      image: "🍽️",
-      tags: ["еда", "скидка"]
-    },
-    {
-      id: 4,
-      name: "Доступ к онлайн-курсу",
-      price: 800,
-      category: "education",
-      university: "МГУ",
-      image: "💻",
-      tags: ["обучение", "курс"]
-    },
-    {
-      id: 5,
-      name: "Билет на университетское мероприятие",
-      price: 200,
-      category: "entertainment",
-      university: "МГУ",
-      image: "🎭",
-      tags: ["мероприятие", "культура"]
-    },
-    {
-      id: 6,
-      name: "Книга из университетской библиотеки",
-      price: 400,
-      category: "education",
-      university: "МГУ",
-      image: "📚",
-      tags: ["книга", "библиотека"]
-    },
-    {
-      id: 7,
-      name: "Абонемент в спортзал",
-      price: 600,
-      category: "sports",
-      university: "МГУ",
-      image: "🏋️",
-      tags: ["спорт", "фитнес"]
-    },
-    {
-      id: 8,
-      name: "Кружка с логотипом",
-      price: 250,
-      category: "merch",
-      university: "МГУ",
-      image: "☕",
-      tags: ["мерч", "посуда"]
-    },
-    {
-      id: 9,
-      name: "Участие в научной конференции",
-      price: 1000,
-      category: "education",
-      university: "МГУ",
-      image: "🎓",
-      tags: ["наука", "конференция"]
-    },
-  ];
-
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [cartCount, setCartCount] = useState(() => getCartCount());
 
-  const filteredItems = items.filter(item => {
+  useEffect(() => subscribeCartUpdated(() => setCartCount(getCartCount())), []);
+
+  const filteredItems = MENU_ITEMS.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const addToCart = (id: number) => {
-    setCart([...cart, id]);
+  const handleAddToCart = (id: number) => {
+    addToCart(id);
   };
 
   const userAK = 25430;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
-      {/* Header */}
       <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
           <div className="min-w-0 flex-1">
@@ -140,16 +48,23 @@ export function MenuPage() {
                 </div>
               </div>
             </Card>
-            <Button asChild variant="outline" className="w-full sm:w-auto">
+            <Button asChild variant="outline" className="w-full sm:w-auto relative">
               <Link to="/cart">
                 <ShoppingCart className="w-4 h-4 mr-2" />
                 Корзина
+                {cartCount > 0 && (
+                  <Badge
+                    variant="default"
+                    className="ml-2 min-w-5 h-5 px-1.5 text-xs rounded-full"
+                  >
+                    {cartCount}
+                  </Badge>
+                )}
               </Link>
             </Button>
           </div>
         </div>
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -161,11 +76,10 @@ export function MenuPage() {
         </div>
       </div>
 
-      {/* Categories */}
       <div className="mb-6 sm:mb-8">
         <h3 className="mb-3 sm:mb-4 text-base sm:text-lg">Сетка с жанрами</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
-          {categories.map((category) => (
+          {MENU_CATEGORIES.map((category) => (
             <Button
               key={category.id}
               variant={selectedCategory === category.id ? 'default' : 'outline'}
@@ -179,16 +93,9 @@ export function MenuPage() {
         </div>
       </div>
 
-      {/* Items Grid */}
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
           <h3 className="text-base sm:text-lg">Товары ({filteredItems.length})</h3>
-          {cart.length > 0 && (
-            <Badge variant="default" className="text-xs sm:text-sm self-start">
-              <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              {cart.length} в корзине
-            </Badge>
-          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -219,7 +126,7 @@ export function MenuPage() {
                   <Button
                     className="w-full"
                     size="sm"
-                    onClick={() => addToCart(item.id)}
+                    onClick={() => handleAddToCart(item.id)}
                     disabled={userAK < item.price}
                   >
                     <Plus className="w-4 h-4 mr-2" />
