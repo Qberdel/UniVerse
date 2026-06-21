@@ -1,0 +1,5 @@
+/* Разрешаем взаимодействие с popover */
+[data-slot="popover-content"],
+[data-radix-popper-content-wrapper] {
+  pointer-events: auto !important;
+}

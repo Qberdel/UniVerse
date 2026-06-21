@@ -54,7 +54,7 @@ export function SearchableSelect({
   const displayValue = selectedItem?.name ?? (items ? "" : value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={true}> {/* ✅ ДОБАВЛЕНО: modal={true} */}
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           id={id}
