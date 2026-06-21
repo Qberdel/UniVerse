@@ -42,7 +42,6 @@ export function RegistrationPage() {
         setUniversities([]);
         setSpecialities([]);
       } else {
-        // данные находятся внутри result.data
         setUniversities(result.universities ?? []);
         setSpecialities(result.specialities ?? []);
         setOptionsError(null);
@@ -55,12 +54,10 @@ export function RegistrationPage() {
     };
   }, []);
 
-  const listsUnavailable = Boolean(optionsError) || optionsLoading;
-
-  // ✅ НОВОЕ: фильтрация специальностей по выбранному университету
+  // ✅ УПРОЩЕНО: фильтрация специальностей по выбранному университету
   const filteredSpecialities = formData.universityId
     ? specialities.filter((s) => s.university_id === Number(formData.universityId))
-    : []; // пусто пока вуз не выбран
+    : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +153,7 @@ export function RegistrationPage() {
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   required
-                  disabled={listsUnavailable}
+                  disabled={optionsLoading}
                 />
               </div>
             </div>
@@ -173,7 +170,7 @@ export function RegistrationPage() {
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   required
-                  disabled={listsUnavailable}
+                  disabled={optionsLoading}
                 />
               </div>
             </div>
@@ -190,7 +187,7 @@ export function RegistrationPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                  disabled={listsUnavailable}
+                  disabled={optionsLoading}
                 />
               </div>
             </div>
@@ -201,7 +198,6 @@ export function RegistrationPage() {
                 id="university"
                 items={universities}
                 value={formData.universityId}
-                // сбрасываем специальность при смене университета
                 onValueChange={(universityId) =>
                   setFormData({
                     ...formData,
@@ -213,8 +209,8 @@ export function RegistrationPage() {
                 searchPlaceholder="Поиск университета..."
                 emptyText="Университет не найден"
                 required
-                loading={optionsLoading}
-                disabled={Boolean(optionsError)} // было disabled={listsUnavailable || universities.length === 0}
+                // ✅ УБРАНО: loading={optionsLoading} - это блокировало открытие
+                disabled={false} // ✅ ГАРАНТИРОВАННО НЕ ЗАБЛОКИРОВАНО
                 className="group-hover:border-ring/50"
               />
             </div>
@@ -223,7 +219,6 @@ export function RegistrationPage() {
               <Label htmlFor="specialty">Специальность</Label>
               <SearchableSelect
                 id="specialty"
-                // используем отфильтрованный список
                 items={filteredSpecialities}
                 value={formData.specialityId}
                 onValueChange={(specialityId) => setFormData({ ...formData, specialityId })}
@@ -231,9 +226,9 @@ export function RegistrationPage() {
                 searchPlaceholder="Поиск специальности..."
                 emptyText="Специальность не найдена"
                 required
-                loading={optionsLoading}
-                // проверяем длину отфильтрованного списка
-                disabled={listsUnavailable || filteredSpecialities.length === 0}
+                // ✅ УБРАНО: loading={optionsLoading}
+                // ✅ БЛОКИРУЕТСЯ ТОЛЬКО ЕСЛИ НЕТ ВЫБРАННОГО ВУЗА ИЛИ НЕТ СПЕЦИАЛЬНОСТЕЙ
+                disabled={!formData.universityId || filteredSpecialities.length === 0}
                 className="group-hover:border-ring/50"
               />
             </div>
@@ -250,7 +245,7 @@ export function RegistrationPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
-                  disabled={listsUnavailable}
+                  disabled={optionsLoading}
                 />
               </div>
             </div>
@@ -267,7 +262,7 @@ export function RegistrationPage() {
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   required
-                  disabled={listsUnavailable}
+                  disabled={optionsLoading}
                 />
               </div>
             </div>
@@ -283,7 +278,7 @@ export function RegistrationPage() {
               </Link>
             </p>
 
-            <Button type="submit" className="w-full" disabled={submitting || listsUnavailable}>
+            <Button type="submit" className="w-full" disabled={submitting || optionsLoading}>
               Зарегистрироваться
             </Button>
           </form>
