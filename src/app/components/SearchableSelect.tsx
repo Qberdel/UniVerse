@@ -75,22 +75,27 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-[280px] p-0" // ✅ ИЗМЕНЕНО: было w-[var(--radix-popover-trigger-width)] или w-72
+      <PopoverContent
+        className={cn(
+          "w-[var(--radix-popover-trigger-width)] p-0 z-[100]",
+          "opacity-100 data-[state=open]:animate-none data-[state=closed]:animate-none",
+        )}
         align="start"
         side="bottom"
-        sideOffset={4} // ✅ ДОБАВЛЕНО: отступ снизу
+        sideOffset={4}
+        collisionPadding={8}
       >
-        <Command shouldFilter={true}> {/* ✅ ДОБАВЛЕНО: shouldFilter={true} */}
+        <Command shouldFilter>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList className="max-h-[240px]">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {items
                 ? items.map((item) => (
                     <CommandItem
                       key={item.id}
-                      value={item.name}
+                      value={`${item.name} ${item.id}`}
+                      keywords={[item.name, String(item.id)]}
                       onSelect={() => {
                         onValueChange(String(item.id));
                         onItemChange?.(item.id);

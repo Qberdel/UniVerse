@@ -209,8 +209,8 @@ export function RegistrationPage() {
                 searchPlaceholder="Поиск университета..."
                 emptyText="Университет не найден"
                 required
-                // ✅ УБРАНО: loading={optionsLoading} - это блокировало открытие
-                disabled={false} // ✅ ГАРАНТИРОВАННО НЕ ЗАБЛОКИРОВАНО
+                loading={optionsLoading}
+                disabled={optionsLoading || !!optionsError}
                 className="group-hover:border-ring/50"
               />
             </div>
@@ -226,9 +226,8 @@ export function RegistrationPage() {
                 searchPlaceholder="Поиск специальности..."
                 emptyText="Специальность не найдена"
                 required
-                // ✅ УБРАНО: loading={optionsLoading}
-                // ✅ БЛОКИРУЕТСЯ ТОЛЬКО ЕСЛИ НЕТ ВЫБРАННОГО ВУЗА ИЛИ НЕТ СПЕЦИАЛЬНОСТЕЙ
-                disabled={!formData.universityId || filteredSpecialities.length === 0}
+                loading={optionsLoading}
+                disabled={optionsLoading || !formData.universityId || filteredSpecialities.length === 0}
                 className="group-hover:border-ring/50"
               />
             </div>

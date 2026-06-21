@@ -1,24 +1,85 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Coins, Search, ShoppingCart, Plus } from 'lucide-react';
-import { MENU_CATEGORIES, MENU_ITEMS } from '../lib/menu-items';
+import { MENU_CATEGORIES } from '../lib/menu-items';
 import { addToCart, getCartCount, subscribeCartUpdated } from '../lib/cart';
+import { fetchStoreItemsRequest, type StoreItem } from '../lib/api';
+import { getProfile } from '../lib/profile';
+
+type DisplayMenuItem = {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+  categoryLabel: string;
+  university: string;
+  image: string;
+  tags: string[];
+};
+
+function mapStoreItem(item: StoreItem): DisplayMenuItem {
+  const category = item.categories?.[0]?.toLowerCase() ?? 'other';
+  const categoryLabel = item.categories?.[0] ?? 'Прочее';
+  return {
+    id: item.item_id,
+    name: item.name,
+    price: item.value,
+    category,
+    categoryLabel,
+    university: item.university_name ?? '—',
+    image: item.image_url ? '🖼️' : '🛍️',
+    tags: item.categories ?? [],
+  };
+}
 
 export function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [cartCount, setCartCount] = useState(() => getCartCount());
+  const [menuItems, setMenuItems] = useState<DisplayMenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => subscribeCartUpdated(() => setCartCount(getCartCount())), []);
 
-  const filteredItems = MENU_ITEMS.filter(item => {
+  useEffect(() => {
+    let cancelled = false;
+    fetchStoreItemsRequest().then((result) => {
+      if (cancelled) return;
+      if (!result.ok || !result.data) {
+        setLoadError(result.error ?? 'Не удалось загрузить товары');
+        setMenuItems([]);
+      } else {
+        setMenuItems(result.data.map(mapStoreItem));
+        setLoadError(null);
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categories = useMemo(() => {
+    const fromApi = Array.from(
+      new Set(menuItems.map((item) => item.categoryLabel).filter(Boolean)),
+    );
+    if (fromApi.length === 0) return MENU_CATEGORIES;
+    return fromApi.map((name, index) => ({
+      id: name.toLowerCase(),
+      name,
+      icon: MENU_CATEGORIES[index % MENU_CATEGORIES.length]?.icon ?? '🛍️',
+    }));
+  }, [menuItems]);
+
+  const filteredItems = menuItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory || item.categoryLabel.toLowerCase() === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -26,7 +87,8 @@ export function MenuPage() {
     addToCart(id);
   };
 
-  const userAK = 25430;
+  const profile = getProfile();
+  const userAK = profile?.personalPoints ?? 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
@@ -79,7 +141,15 @@ export function MenuPage() {
       <div className="mb-6 sm:mb-8">
         <h3 className="mb-3 sm:mb-4 text-base sm:text-lg">Сетка с жанрами</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
-          {MENU_CATEGORIES.map((category) => (
+          <Button
+            variant={selectedCategory === 'all' ? 'default' : 'outline'}
+            onClick={() => setSelectedCategory('all')}
+            className="h-auto flex-col py-3 sm:py-4"
+          >
+            <span className="text-2xl sm:text-3xl mb-1 sm:mb-2">📦</span>
+            <span className="text-xs sm:text-sm">Все</span>
+          </Button>
+          {categories.map((category) => (
             <Button
               key={category.id}
               variant={selectedCategory === category.id ? 'default' : 'outline'}
@@ -98,8 +168,17 @@ export function MenuPage() {
           <h3 className="text-base sm:text-lg">Товары ({filteredItems.length})</h3>
         </div>
 
+        {loadError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4">
+            {loadError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {filteredItems.map((item) => (
+          {loading ? (
+            <p className="text-sm text-muted-foreground col-span-full text-center py-8">Загрузка товаров...</p>
+          ) : (
+          filteredItems.map((item) => (
             <Card key={item.id} className="p-3 sm:p-4 hover:shadow-lg transition-all">
               <div className="flex flex-col h-full">
                 <div className="text-3xl sm:text-4xl mb-2 sm:mb-3">{item.image}</div>
@@ -135,10 +214,11 @@ export function MenuPage() {
                 </div>
               </div>
             </Card>
-          ))}
+          ))
+          )}
         </div>
 
-        {filteredItems.length === 0 && (
+        {!loading && filteredItems.length === 0 && (
           <div className="text-center py-16">
             <p className="text-muted-foreground">Товары не найдены</p>
           </div>

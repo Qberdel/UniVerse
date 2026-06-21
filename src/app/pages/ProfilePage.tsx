@@ -30,7 +30,7 @@ import {
   type UserProfile,
 } from "../lib/profile";
 import { useNavigate } from "react-router";
-import { parseAuthUserPayload, profileRequest } from "../lib/api";
+import { parseAuthUserPayload, profileRequest, fetchCurrentUserRequest, fetchUserProfileRequest, mapActivityStatus, updateUserEmailRequest, resolveAvatarUrl, type UserActivity } from "../lib/api";
 import {
   getStudentClaims,
   persistStudentClaims,
@@ -39,6 +39,23 @@ import {
 } from "../lib/claims";
 import { OnboardingDialog } from "../components/OnboardingDialog";
 import { markOnboardingSeen } from "../lib/onboarding";
+
+function mapApiActivityToClaim(activity: UserActivity): StudentClaim {
+  const statusText = mapActivityStatus(activity.status, activity.status_text);
+  let status: StudentClaim["status"] = "На проверке";
+  if (statusText.toLowerCase().includes("прин")) status = "Принято";
+  else if (statusText.toLowerCase().includes("откл")) status = "Отклонено";
+  else if (statusText.toLowerCase().includes("дополн")) status = "Дополнить";
+
+  return {
+    id: activity.activity_id,
+    date: activity.created_at?.slice(0, 10) ?? activity.report_time?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    activity: activity.name,
+    coins: activity.points_awarded ?? 0,
+    status,
+    supplements: [],
+  };
+}
 
 function getStatusBadgeVariant(status: StudentClaim["status"]): "default" | "secondary" | "outline" {
   if (status === "Принято") return "secondary";
@@ -453,6 +470,15 @@ export function ProfilePage() {
   const [supplementPhotoDataUrl, setSupplementPhotoDataUrl] = useState<string | undefined>(undefined);
   const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
   const [apiAuthStatus, setApiAuthStatus] = useState<"loading" | "ok" | "error">("loading");
+  const [activityHistory, setActivityHistory] = useState<StudentClaim[]>(() => getStudentClaims());
+  const [chartData, setChartData] = useState([
+    { month: "Янв", rating: 0, applications: 0 },
+    { month: "Фев", rating: 0, applications: 0 },
+    { month: "Мар", rating: 0, applications: 0 },
+    { month: "Апр", rating: 0, applications: 0 },
+    { month: "Май", rating: 0, applications: 0 },
+    { month: "Июн", rating: 0, applications: 0 },
+  ]);
 
   const [profile, setProfileState] = useState<UserProfile>(() => {
     const stored = getProfile();
@@ -478,14 +504,82 @@ export function ProfilePage() {
     }
 
     let cancelled = false;
-    profileRequest(token).then((result) => {
+
+    async function loadApiProfile() {
+      const profileRes = await profileRequest(token!);
       if (cancelled) return;
-      setApiAuthStatus(result.ok ? "ok" : "error");
-      if (result.ok) {
-        const next = applyAuthUserToProfile(parseAuthUserPayload(result.data));
+
+      let userId: number | undefined;
+
+      const userRes = await fetchCurrentUserRequest(token!);
+      if (!cancelled && userRes.ok && userRes.data) {
+        userId = userRes.data.user_id;
+        const next = applyAuthUserToProfile({
+          user_id: userRes.data.user_id,
+          firstname: userRes.data.firstname,
+          lastname: userRes.data.lastname,
+          name: `${userRes.data.lastname} ${userRes.data.firstname}`.trim(),
+          avatar: userRes.data.avatar,
+          personal_points: userRes.data.personal_points,
+        });
         setProfileState(next);
+      } else if (profileRes.ok) {
+        const next = applyAuthUserToProfile(parseAuthUserPayload(profileRes.data));
+        setProfileState(next);
+        userId = next.userId;
       }
-    });
+
+      if (userId != null) {
+        const fullRes = await fetchUserProfileRequest(token!, userId);
+        if (!cancelled && fullRes.ok && fullRes.data) {
+          const full = fullRes.data;
+          const storedEmail = getProfile()?.email ?? "user@example.com";
+          const nextProfile: UserProfile = {
+            userId: full.user_id,
+            name: `${full.lastname} ${full.firstname}`.trim(),
+            university: full.university_name ?? "—",
+            specialty: full.speciality_name,
+            email: storedEmail,
+            avatarDataUrl: resolveAvatarUrl(full.avatar),
+            personalPoints: full.personal_points,
+            universityRank: full.university_rank,
+            universityStudents: full.university_students,
+          };
+          setProfile(nextProfile);
+          setProfileState(nextProfile);
+
+          if (full.activities?.length) {
+            setActivityHistory(full.activities.map(mapApiActivityToClaim));
+          }
+
+          if (full.monthly_history?.length) {
+            setChartData(
+              full.monthly_history.map((item) => ({
+                month: item.month.slice(5, 7) === "01" ? "Янв" :
+                  item.month.slice(5, 7) === "02" ? "Фев" :
+                  item.month.slice(5, 7) === "03" ? "Мар" :
+                  item.month.slice(5, 7) === "04" ? "Апр" :
+                  item.month.slice(5, 7) === "05" ? "Май" :
+                  item.month.slice(5, 7) === "06" ? "Июн" :
+                  item.month.slice(5, 7) === "07" ? "Июл" :
+                  item.month.slice(5, 7) === "08" ? "Авг" :
+                  item.month.slice(5, 7) === "09" ? "Сен" :
+                  item.month.slice(5, 7) === "10" ? "Окт" :
+                  item.month.slice(5, 7) === "11" ? "Ноя" : "Дек",
+                rating: item.points_received,
+                applications: item.activities_count,
+              })),
+            );
+          }
+        }
+      }
+
+      if (!cancelled) {
+        setApiAuthStatus(profileRes.ok || userRes.ok ? "ok" : "error");
+      }
+    }
+
+    loadApiProfile();
 
     return () => {
       cancelled = true;
@@ -507,26 +601,15 @@ export function ProfilePage() {
     setEditAvatarDataUrl(profile.avatarDataUrl);
   }, [editOpen, profile.avatarDataUrl, profile.email]);
 
-  const [activityHistory, setActivityHistory] = useState<StudentClaim[]>(() => getStudentClaims());
-
-  const chartData = [
-    { month: "Янв", rating: 18000, applications: 0 },
-    { month: "Фев", rating: 19500, applications: 0 },
-    { month: "Мар", rating: 21200, applications: 0 },
-    { month: "Апр", rating: 23800, applications: 0 },
-    { month: "Май", rating: 24500, applications: 0 },
-    { month: "Июн", rating: 25430, applications: 0 },
-  ];
-
   const userData = {
     name: profile.name,
     email: profile.email,
     university: profile.university,
     specialty: profile.specialty,
     avatarDataUrl: profile.avatarDataUrl,
-    activeCoins: 25430,
-    rank: 142,
-    totalStudents: 45000,
+    activeCoins: profile.personalPoints ?? 0,
+    rank: profile.universityRank ?? 0,
+    totalStudents: profile.universityStudents ?? 0,
   };
 
   const onLogout = () => {
@@ -549,12 +632,23 @@ export function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const onSaveProfile = () => {
+  const onSaveProfile = async () => {
+    const token = getAuthToken();
     const next: UserProfile = {
       ...profile,
       email: editEmail.trim(),
       avatarDataUrl: editAvatarDataUrl,
     };
+
+    if (token) {
+      if (editEmail.trim() !== profile.email) {
+        const emailRes = await updateUserEmailRequest(token, editEmail.trim());
+        if (!emailRes.ok) {
+          return;
+        }
+      }
+    }
+
     setProfile(next);
     setProfileState(next);
     setEditOpen(false);

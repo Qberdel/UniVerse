@@ -1,17 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UniversityCard } from '../components/UniversityCard';
 import { ActivityChart } from '../components/ActivityChart';
 import { StatsCard } from '../components/StatsCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { GraduationCap, TrendingUp, Users, Coins, Search, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { ActivityBanner } from '../components/ActivityBanner';
-
-type UniversityCategory = 'tech' | 'humanities' | 'medical';
+import { fetchRatingRequest, type RatingUniversity } from '../lib/api';
 
 type DashboardUniversity = {
   id: number;
@@ -23,83 +21,21 @@ type DashboardUniversity = {
   avgAK: number;
   trend: number;
   specialties: string[];
-  category: UniversityCategory;
 };
 
-const UNIVERSITIES: DashboardUniversity[] = [
-  {
-    id: 1,
-    rank: 1,
-    name: "Московский государственный университет",
-    activeCoins: 985000,
-    location: "Москва",
-    students: 45000,
-    avgAK: 21889,
-    trend: 2.3,
-    specialties: ["Физика", "Математика", "Биология", "Юриспруденция"],
-    category: "humanities",
-  },
-  {
-    id: 2,
-    rank: 2,
-    name: "Санкт-Петербургский государственный университет",
-    activeCoins: 862000,
-    location: "Санкт-Петербург",
-    students: 32000,
-    avgAK: 26938,
-    trend: 1.8,
-    specialties: ["Филология", "История", "Экономика", "Медицина"],
-    category: "humanities",
-  },
-  {
-    id: 3,
-    rank: 3,
-    name: "Новосибирский государственный университет",
-    activeCoins: 748000,
-    location: "Новосибирск",
-    students: 28000,
-    avgAK: 26714,
-    trend: 3.2,
-    specialties: ["ИТ", "Физика", "Химия", "Биотехнологии"],
-    category: "tech",
-  },
-  {
-    id: 4,
-    rank: 4,
-    name: "МФТИ",
-    activeCoins: 637000,
-    location: "Москва",
-    students: 12000,
-    avgAK: 53083,
-    trend: 1.5,
-    specialties: ["Физика", "Математика", "ИТ", "Аэрокосмика"],
-    category: "tech",
-  },
-  {
-    id: 5,
-    rank: 5,
-    name: "НИУ ВШЭ",
-    activeCoins: 624000,
-    location: "Москва",
-    students: 38000,
-    avgAK: 16421,
-    trend: 2.7,
-    specialties: ["Экономика", "Менеджмент", "ИТ", "Дизайн"],
-    category: "humanities",
-  },
-  {
-    id: 6,
-    rank: 6,
-    name: "Томский государственный университет",
-    activeCoins: 501000,
-    location: "Томск",
-    students: 18000,
-    avgAK: 27833,
-    trend: -0.5,
-    specialties: ["Информатика", "Химия", "Биология"],
-    category: "medical",
-  },
-];
+function mapRatingUniversity(uni: RatingUniversity, rank: number): DashboardUniversity {
+  return {
+    id: uni.university_id,
+    rank: uni.rank ?? rank,
+    name: uni.name,
+    activeCoins: uni.activity_points,
+    location: uni.region ?? "—",
+    students: uni.students_count ?? 0,
+    avgAK: Math.round(uni.avg_points ?? 0),
+    trend: uni.points_change ?? 0,
+    specialties: uni.specialities?.map((s) => s.name) ?? [],
+  };
+}
 
 const CHART_DATA = [
   { month: 'Янв', rating: 850000, applications: 12000 },
@@ -121,17 +57,46 @@ const POPULAR_SPECIALTIES_DATA = [
 
 export function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [universities, setUniversities] = useState<DashboardUniversity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchRatingRequest(1, 100).then((result) => {
+      if (cancelled) return;
+      if (!result.ok || !result.data) {
+        setLoadError(result.error ?? "Не удалось загрузить рейтинг");
+        setUniversities([]);
+      } else {
+        setUniversities(
+          result.data.universities.map((uni, index) =>
+            mapRatingUniversity(uni, index + 1),
+          ),
+        );
+        setLoadError(null);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredUniversities = useMemo(() => {
-    return UNIVERSITIES.filter((uni) => {
-      const matchesSearch =
+    return universities.filter((uni) => {
+      return (
         uni.name.toLowerCase().includes(normalizedQuery) ||
-        uni.location.toLowerCase().includes(normalizedQuery);
-      const matchesCategory = selectedCategory === 'all' || uni.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+        uni.location.toLowerCase().includes(normalizedQuery)
+      );
     });
-  }, [normalizedQuery, selectedCategory]);
+  }, [normalizedQuery, universities]);
+
+  const totalStudents = universities.reduce((sum, uni) => sum + uni.students, 0);
+  const totalAK = universities.reduce((sum, uni) => sum + uni.activeCoins, 0);
 
   return (
     <>
@@ -143,21 +108,19 @@ export function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <StatsCard
           title="Всего ВУЗов"
-          value="1,245"
+          value={loading ? "…" : universities.length.toLocaleString()}
           icon={GraduationCap}
-          trend={{ value: 3.2, positive: true }}
         />
         <StatsCard
           title="Студентов"
-          value="4.2M"
+          value={loading ? "…" : totalStudents.toLocaleString()}
           icon={Users}
-          description="По всей России"
+          description="В рейтинге"
         />
         <StatsCard
           title="Общий АК"
-          value="45.8M"
+          value={loading ? "…" : totalAK.toLocaleString()}
           icon={Coins}
-          trend={{ value: 1.8, positive: true }}
         />
         <StatsCard
           title="Рост активности"
@@ -185,26 +148,25 @@ export function DashboardPage() {
                 className="pl-10"
               />
             </div>
-            <div className="flex gap-3">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Категория" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все категории</SelectItem>
-                  <SelectItem value="tech">Технические</SelectItem>
-                  <SelectItem value="humanities">Гуманитарные</SelectItem>
-                  <SelectItem value="medical">Медицинские</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
+
+          {loadError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {loadError}
+            </div>
+          )}
 
           {/* University List */}
           <div className="space-y-4">
-            {filteredUniversities.map((uni) => (
-              <UniversityCard key={uni.rank} {...uni} />
-            ))}
+            {loading ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Загрузка рейтинга...</p>
+            ) : filteredUniversities.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Университеты не найдены</p>
+            ) : (
+              filteredUniversities.map((uni) => (
+                <UniversityCard key={uni.id} {...uni} />
+              ))
+            )}
           </div>
         </TabsContent>
 
@@ -273,7 +235,7 @@ export function DashboardPage() {
                   Сравнение среднего АК на студента и динамики.
                 </p>
               </div>
-              <Badge variant="outline">Демо-данные</Badge>
+              <Badge variant="outline">API /rating</Badge>
             </div>
             <div className="overflow-x-auto border rounded-lg">
               <Table className="min-w-[480px]">
@@ -286,7 +248,7 @@ export function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {UNIVERSITIES.slice(0, 5).map((u) => (
+                  {universities.slice(0, 5).map((u) => (
                     <TableRow key={u.id}>
                       <TableCell className="whitespace-normal">
                         <div className="font-medium">{u.name}</div>

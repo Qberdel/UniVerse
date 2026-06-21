@@ -23,21 +23,47 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { CheckCircle2, FileText, HelpCircle, Image as ImageIcon, Search, Shield, XCircle } from "lucide-react";
 import { getClaimById, getStudentClaims, subscribeStudentClaimsUpdated } from "../lib/claims";
+import { fetchAdminActivitiesRequest, updateActivityStatusRequest, type AdminActivity } from "../lib/api";
+import { getAuthToken } from "../lib/auth";
 
 type ModerationStatus = "pending" | "accepted" | "rejected" | "need_info";
 
 type ModerationRequest = {
   id: string;
-  createdAt: string; // ISO
+  activityId: number;
+  createdAt: string;
   studentName: string;
   university: string;
   category: string;
   title: string;
   requestedAK?: number;
   status: ModerationStatus;
-  /** Связь с заявкой студента в профиле (id из `universe:studentClaims`) */
   linkClaimId?: number;
+  images?: string[];
 };
+
+function mapAdminStatus(status: number, statusText?: string): ModerationStatus {
+  const text = (statusText ?? "").toLowerCase();
+  if (text.includes("прин") || status === 1) return "accepted";
+  if (text.includes("откл") || status === 2) return "rejected";
+  if (text.includes("дополн") || status === 3) return "need_info";
+  return "pending";
+}
+
+function mapAdminActivity(activity: AdminActivity): ModerationRequest {
+  return {
+    id: `REQ-${activity.activity_id}`,
+    activityId: activity.activity_id,
+    createdAt: activity.created_at ?? activity.report_time ?? new Date().toISOString(),
+    studentName: activity.user_name,
+    university: activity.university_name,
+    category: `Категория #${activity.category_id}`,
+    title: activity.name,
+    requestedAK: activity.points_awarded,
+    status: mapAdminStatus(activity.status, activity.status_text),
+    images: activity.images,
+  };
+}
 
 function statusBadge(status: ModerationStatus) {
   switch (status) {
@@ -71,49 +97,36 @@ export function ModeratorPage() {
     setHintOpen(true);
   }, []);
 
-  const [requests, setRequests] = useState<ModerationRequest[]>([
-    {
-      id: "REQ-1024",
-      createdAt: "2026-04-28T10:45:00.000Z",
-      studentName: "Иван Петров",
-      university: "МГУ",
-      category: "Академическая деятельность",
-      title: "Участие в олимпиаде по физике (призёр)",
-      requestedAK: 500,
-      status: "pending",
-    },
-    {
-      id: "REQ-1025",
-      createdAt: "2026-04-27T15:10:00.000Z",
-      studentName: "Мария Смирнова",
-      university: "СПбГУ",
-      category: "Научная работа",
-      title: "Публикация статьи в сборнике конференции",
-      requestedAK: 800,
-      status: "need_info",
-      linkClaimId: 3,
-    },
-    {
-      id: "REQ-1026",
-      createdAt: "2026-04-26T09:20:00.000Z",
-      studentName: "Алексей Иванов",
-      university: "НИУ ВШЭ",
-      category: "Научная работа",
-      title: "Доклад на межвузовской конференции",
-      requestedAK: 450,
-      status: "accepted",
-    },
-    {
-      id: "REQ-1027",
-      createdAt: "2026-04-24T18:05:00.000Z",
-      studentName: "Екатерина Орлова",
-      university: "НГУ",
-      category: "Спортивные достижения",
-      title: "Победа в студенческих соревнованиях",
-      requestedAK: 600,
-      status: "rejected",
-    },
-  ]);
+  const [requests, setRequests] = useState<ModerationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      setLoadError("Требуется авторизация администратора");
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    fetchAdminActivitiesRequest(token).then((result) => {
+      if (cancelled) return;
+      if (!result.ok || !result.data) {
+        setLoadError(result.error ?? "Не удалось загрузить заявки");
+        setRequests([]);
+      } else {
+        setRequests(result.data.map(mapAdminActivity));
+        setLoadError(null);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const universities = useMemo(() => {
     const unique = Array.from(new Set(requests.map((r) => r.university)));
@@ -149,8 +162,29 @@ export function ModeratorPage() {
     return group;
   }, [filtered]);
 
-  const updateStatus = (id: string, next: ModerationStatus) => {
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: next } : r)));
+  const updateStatus = async (request: ModerationRequest, next: ModerationStatus) => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    const statusMap: Record<ModerationStatus, number> = {
+      pending: 0,
+      accepted: 1,
+      rejected: 2,
+      need_info: 3,
+    };
+
+    const result = await updateActivityStatusRequest(token, request.activityId, {
+      status: statusMap[next],
+      points: request.requestedAK,
+    });
+
+    if (!result.ok) {
+      setActionError(result.error ?? "Не удалось обновить статус");
+      return;
+    }
+
+    setActionError(null);
+    setRequests((prev) => prev.map((r) => (r.id === request.id ? { ...r, status: next } : r)));
   };
 
   const openEvidence = (r: ModerationRequest) => {
@@ -176,10 +210,7 @@ export function ModeratorPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((r) => {
-            const claim = r.linkClaimId != null ? getClaimById(claims, r.linkClaimId) : undefined;
-            const hasSupplements = Boolean(claim && claim.supplements.length > 0);
-            return (
+          {items.map((r) => (
             <TableRow key={r.id} className="!align-top">
               <TableCell className="!whitespace-normal !align-top">
                 <div className="min-w-0">
@@ -200,13 +231,11 @@ export function ModeratorPage() {
               <TableCell className="!whitespace-normal !align-top break-words">{r.category}</TableCell>
               <TableCell className="!align-top">{typeof r.requestedAK === "number" ? `${r.requestedAK}` : "—"}</TableCell>
               <TableCell className="!align-top">
-                {hasSupplements ? (
+                {r.images?.length ? (
                   <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => openEvidence(r)}>
                     <ImageIcon className="w-4 h-4 mr-2" />
                     Смотреть
                   </Button>
-                ) : r.linkClaimId != null ? (
-                  <span className="text-xs text-muted-foreground">Пока нет</span>
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
@@ -217,7 +246,7 @@ export function ModeratorPage() {
                   <Button
                     size="sm"
                     className="sm:w-auto"
-                    onClick={() => updateStatus(r.id, "accepted")}
+                    onClick={() => updateStatus(r, "accepted")}
                     disabled={r.status === "accepted"}
                   >
                     <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -226,7 +255,7 @@ export function ModeratorPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => updateStatus(r.id, "need_info")}
+                    onClick={() => updateStatus(r, "need_info")}
                     disabled={r.status === "need_info"}
                   >
                     <HelpCircle className="w-4 h-4 mr-2" />
@@ -235,7 +264,7 @@ export function ModeratorPage() {
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => updateStatus(r.id, "rejected")}
+                    onClick={() => updateStatus(r, "rejected")}
                     disabled={r.status === "rejected"}
                   >
                     <XCircle className="w-4 h-4 mr-2" />
@@ -244,8 +273,7 @@ export function ModeratorPage() {
                 </div>
               </TableCell>
             </TableRow>
-            );
-          })}
+          ))}
           {items.length === 0 && (
             <TableRow>
               <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground whitespace-normal">
@@ -278,8 +306,7 @@ export function ModeratorPage() {
               <DialogHeader>
                 <DialogTitle>Подсказка</DialogTitle>
                 <DialogDescription>
-                  Статусы меняются локально. Дополнения и фото со страницы профиля студента сохраняются в браузере и
-                  отображаются здесь для заявок со связью по ID (демо: REQ-1025 ↔ заявка «Публикация статьи»).
+                  Заявки загружаются из API /admin. Статусы обновляются через PATCH /admin/activities/:id.
                 </DialogDescription>
               </DialogHeader>
             </DialogContent>
@@ -314,6 +341,20 @@ export function ModeratorPage() {
             </Select>
           </div>
 
+          {loadError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4">
+              {loadError}
+            </div>
+          )}
+          {actionError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4">
+              {actionError}
+            </div>
+          )}
+
+          {loading ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Загрузка заявок...</p>
+          ) : (
           <Tabs defaultValue="pending">
             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
               <TabsTrigger value="pending" className="text-xs sm:text-sm">
@@ -343,6 +384,7 @@ export function ModeratorPage() {
               {renderTable(byStatus.rejected)}
             </TabsContent>
           </Tabs>
+          )}
         </Card>
       </div>
 
@@ -354,7 +396,21 @@ export function ModeratorPage() {
               {evidenceRequest ? `${evidenceRequest.id} — ${evidenceRequest.title}` : ""}
             </DialogDescription>
           </DialogHeader>
-          {linkedClaim && linkedClaim.supplements.length > 0 ? (
+          {evidenceRequest?.images?.length ? (
+            <div className="space-y-4">
+              {evidenceRequest.images.map((url, idx) => (
+                <div key={`${url}-${idx}`} className="rounded-lg border p-3">
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+                    <img
+                      src={url}
+                      alt={`Доказательство ${idx + 1}`}
+                      className="max-h-64 w-full rounded-md object-contain bg-muted/50 border"
+                    />
+                  </a>
+                </div>
+              ))}
+            </div>
+          ) : linkedClaim && linkedClaim.supplements.length > 0 ? (
             <div className="space-y-4">
               {linkedClaim.supplements.map((s, idx) => (
                 <div key={`${s.createdAt}-${idx}`} className="rounded-lg border p-3 space-y-2">
