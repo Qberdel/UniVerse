@@ -5,13 +5,25 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Calendar } from '../components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
-import { Plus, Calendar as CalendarIcon, Upload, ShieldAlert, LogIn, UserPlus } from 'lucide-react';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { Plus, Upload, ShieldAlert, LogIn, UserPlus } from 'lucide-react';
 import { isRegistered } from '../lib/auth';
+import { cn } from '../components/ui/utils';
+
+const selectClassName = cn(
+  'flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm',
+  'transition-colors hover:border-ring/50',
+  'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none',
+);
+
+const CATEGORIES = [
+  { value: 'academic', label: 'Академическая деятельность' },
+  { value: 'sports', label: 'Спортивные достижения' },
+  { value: 'volunteer', label: 'Волонтерство' },
+  { value: 'research', label: 'Научная работа' },
+  { value: 'culture', label: 'Культурная деятельность' },
+  { value: 'leadership', label: 'Лидерство и управление' },
+  { value: 'other', label: 'Другое' },
+];
 
 function AddActivityUnauthorized() {
   return (
@@ -54,21 +66,26 @@ function AddActivityUnauthorized() {
 export function AddActivityPage() {
   const navigate = useNavigate();
   const registered = isRegistered();
-
-  if (!registered) {
-    return <AddActivityUnauthorized />;
-  }
-  const [date, setDate] = useState<Date>();
+  const [activityDate, setActivityDate] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     category: '',
-    proofFile: null as File | null
+    proofFile: null as File | null,
   });
+
+  if (!registered) {
+    return <AddActivityUnauthorized />;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Здесь будет логика отправки заявки на модерацию
+    if (!activityDate) {
+      alert('Выберите дату проведения активности');
+      return;
+    }
     alert('Заявка отправлена на модерацию!');
     navigate('/profile');
   };
@@ -107,43 +124,36 @@ export function AddActivityPage() {
 
             <div className="space-y-2">
               <Label htmlFor="category">Категория *</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите категорию" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="academic">Академическая деятельность</SelectItem>
-                  <SelectItem value="sports">Спортивные достижения</SelectItem>
-                  <SelectItem value="volunteer">Волонтерство</SelectItem>
-                  <SelectItem value="research">Научная работа</SelectItem>
-                  <SelectItem value="culture">Культурная деятельность</SelectItem>
-                  <SelectItem value="leadership">Лидерство и управление</SelectItem>
-                  <SelectItem value="other">Другое</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                id="category"
+                className={selectClassName}
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                required
+              >
+                <option value="">Выберите категорию</option>
+                {CATEGORIES.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="date">Дата проведения *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, 'PPP', { locale: ru }) : <span>Выберите дату</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <Input
+                id="date"
+                type="date"
+                value={activityDate}
+                onChange={(e) => setActivityDate(e.target.value)}
+                max={today}
+                required
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Выберите дату из календаря или введите в формате ДД.ММ.ГГГГ
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -195,7 +205,6 @@ export function AddActivityPage() {
           </form>
         </Card>
 
-        {/* Info Sidebar */}
         <div className="lg:col-span-1 space-y-3 sm:space-y-4">
           <Card className="p-4 sm:p-6">
             <h4 className="mb-3 sm:mb-4 text-sm sm:text-base">Как это работает?</h4>

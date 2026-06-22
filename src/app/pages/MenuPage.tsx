@@ -6,9 +6,10 @@ import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Coins, Search, ShoppingCart, Plus } from 'lucide-react';
 import { MENU_CATEGORIES } from '../lib/menu-items';
-import { addToCart, getCartCount, subscribeCartUpdated } from '../lib/cart';
+import { addToCart, getCartCount, getCartTotal, subscribeCartUpdated } from '../lib/cart';
 import { fetchStoreItemsRequest, type StoreItem } from '../lib/api';
-import { getProfile } from '../lib/profile';
+import { getPersonalPoints, subscribeProfileUpdated } from '../lib/profile';
+import type { MenuItem } from '../lib/menu-items';
 
 type DisplayMenuItem = {
   id: number;
@@ -21,7 +22,7 @@ type DisplayMenuItem = {
   tags: string[];
 };
 
-function mapStoreItem(item: StoreItem): DisplayMenuItem {
+function mapStoreItem(item: StoreItem): DisplayMenuItem & MenuItem {
   const category = item.categories?.[0]?.toLowerCase() ?? 'other';
   const categoryLabel = item.categories?.[0] ?? 'Прочее';
   return {
@@ -40,11 +41,25 @@ export function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [cartCount, setCartCount] = useState(() => getCartCount());
+  const [cartTotal, setCartTotal] = useState(() => getCartTotal());
+  const [userAK, setUserAK] = useState(() => getPersonalPoints());
   const [menuItems, setMenuItems] = useState<DisplayMenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => subscribeCartUpdated(() => setCartCount(getCartCount())), []);
+  useEffect(() => {
+    const refreshCart = () => {
+      setCartCount(getCartCount());
+      setCartTotal(getCartTotal());
+    };
+    const refreshPoints = () => setUserAK(getPersonalPoints());
+    const unsubCart = subscribeCartUpdated(refreshCart);
+    const unsubProfile = subscribeProfileUpdated(refreshPoints);
+    return () => {
+      unsubCart();
+      unsubProfile();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,12 +98,13 @@ export function MenuPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleAddToCart = (id: number) => {
-    addToCart(id);
+  const handleAddToCart = (item: DisplayMenuItem & MenuItem) => {
+    if (userAK - cartTotal < item.price) return;
+    addToCart(item);
   };
 
-  const profile = getProfile();
-  const userAK = profile?.personalPoints ?? 0;
+  const availableAK = userAK - cartTotal;
+  const remainingAfterCart = availableAK;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
@@ -107,6 +123,11 @@ export function MenuPage() {
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm text-muted-foreground">Доступно АК</p>
                   <p className="text-xl sm:text-2xl">{userAK.toLocaleString()}</p>
+                  {cartTotal > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      В корзине: {cartTotal.toLocaleString()} АК · останется {Math.max(0, remainingAfterCart).toLocaleString()} АК
+                    </p>
+                  )}
                 </div>
               </div>
             </Card>
@@ -205,11 +226,11 @@ export function MenuPage() {
                   <Button
                     className="w-full"
                     size="sm"
-                    onClick={() => handleAddToCart(item.id)}
-                    disabled={userAK < item.price}
+                    onClick={() => handleAddToCart(item)}
+                    disabled={availableAK < item.price}
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Добавить
+                    {availableAK < item.price ? 'Недостаточно АК' : 'Добавить'}
                   </Button>
                 </div>
               </div>

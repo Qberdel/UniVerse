@@ -20,6 +20,7 @@ export type UserProfile = {
 };
 
 const PROFILE_KEY = "universe:profile";
+const PROFILE_UPDATED_EVENT = "universe-profile-updated";
 
 const DEFAULT_PROFILE: UserProfile = {
   name: "Пользователь",
@@ -146,6 +147,27 @@ export function setProfile(profile: UserProfile) {
   } catch {
     // ignore
   }
+  window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
+}
+
+export function getPersonalPoints(): number {
+  return getProfile()?.personalPoints ?? 0;
+}
+
+export function deductPersonalPoints(amount: number): boolean {
+  if (amount <= 0) return true;
+  const profile = getProfile();
+  const current = profile?.personalPoints ?? 0;
+  if (!profile || current < amount) return false;
+
+  setProfile({ ...profile, personalPoints: current - amount });
+  return true;
+}
+
+export function subscribeProfileUpdated(callback: () => void) {
+  const handler = () => callback();
+  window.addEventListener(PROFILE_UPDATED_EVENT, handler);
+  return () => window.removeEventListener(PROFILE_UPDATED_EVENT, handler);
 }
 
 export function clearProfile() {

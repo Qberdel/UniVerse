@@ -7,25 +7,60 @@ import { Coins, Trash2, ShoppingBag } from 'lucide-react';
 import {
   clearCart,
   getCartItems,
+  getCartTotal,
   removeCartLine,
   subscribeCartUpdated,
   type CartLineItem,
 } from '../lib/cart';
+import {
+  deductPersonalPoints,
+  getPersonalPoints,
+  subscribeProfileUpdated,
+} from '../lib/profile';
 
 export function CartPage() {
   const [cartItems, setCartItems] = useState<CartLineItem[]>(() => getCartItems());
+  const [userAK, setUserAK] = useState(() => getPersonalPoints());
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [lastPaidAmount, setLastPaidAmount] = useState(0);
 
-  useEffect(() => subscribeCartUpdated(() => setCartItems(getCartItems())), []);
+  useEffect(() => {
+    const refreshCart = () => setCartItems(getCartItems());
+    const refreshPoints = () => setUserAK(getPersonalPoints());
+    const unsubCart = subscribeCartUpdated(refreshCart);
+    const unsubProfile = subscribeProfileUpdated(refreshPoints);
+    return () => {
+      unsubCart();
+      unsubProfile();
+    };
+  }, []);
 
-  const totalAK = cartItems.reduce((sum, item) => sum + item.price, 0);
+  const totalAK = getCartTotal();
+  const remainingAfterPayment = userAK - totalAK;
+  const canPay = totalAK > 0 && userAK >= totalAK;
 
   const handleRemoveItem = (lineId: string) => {
     removeCartLine(lineId);
   };
 
   const handlePayment = () => {
-    alert(`Оплата ${totalAK} АК успешно выполнена!`);
+    setPaymentError(null);
+    if (!canPay) {
+      setPaymentError('Недостаточно АК для оплаты');
+      return;
+    }
+
+    const ok = deductPersonalPoints(totalAK);
+    if (!ok) {
+      setPaymentError('Не удалось списать АК');
+      return;
+    }
+
     clearCart();
+    setLastPaidAmount(totalAK);
+    setPaymentSuccess(true);
+    setUserAK(getPersonalPoints());
   };
 
   if (cartItems.length === 0) {
@@ -33,8 +68,14 @@ export function CartPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="text-center py-12 sm:py-16">
           <ShoppingBag className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="mb-2 text-xl sm:text-2xl">Корзина пуста</h2>
-          <p className="text-sm sm:text-base text-muted-foreground mb-6">Добавьте товары из каталога</p>
+          <h2 className="mb-2 text-xl sm:text-2xl">
+            {paymentSuccess ? 'Покупка выполнена!' : 'Корзина пуста'}
+          </h2>
+          <p className="text-sm sm:text-base text-muted-foreground mb-6">
+            {paymentSuccess
+              ? `Списано ${lastPaidAmount.toLocaleString()} АК. На балансе: ${userAK.toLocaleString()} АК`
+              : 'Добавьте товары из каталога'}
+          </p>
           <Button asChild>
             <Link to="/menu">Перейти в товары</Link>
           </Button>
@@ -96,24 +137,35 @@ export function CartPage() {
           <Card className="p-4 sm:p-6 lg:sticky lg:top-24">
             <h3 className="mb-4 sm:mb-6 text-base sm:text-lg">Итого</h3>
 
+            {paymentError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive mb-4">
+                {paymentError}
+              </div>
+            )}
+
             <div className="space-y-3 mb-4 sm:mb-6">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Товаров:</span>
                 <span>{cartItems.length}</span>
               </div>
 
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">На балансе:</span>
+                <span>{userAK.toLocaleString()} АК</span>
+              </div>
+
               <div className="flex items-center justify-between pt-3 border-t">
-                <span className="text-sm sm:text-base">Всего к оплате:</span>
+                <span className="text-sm sm:text-base">К списанию:</span>
                 <div className="flex items-center gap-1 sm:gap-2">
                   <Coins className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
-                  <span className="text-xl sm:text-2xl">{totalAK}</span>
+                  <span className="text-xl sm:text-2xl">{totalAK.toLocaleString()}</span>
                   <span className="text-xs sm:text-sm text-muted-foreground">АК</span>
                 </div>
               </div>
             </div>
 
-            <Button className="w-full mb-3" onClick={handlePayment}>
-              Оплатить {totalAK} АК
+            <Button className="w-full mb-3" onClick={handlePayment} disabled={!canPay}>
+              Оплатить {totalAK.toLocaleString()} АК
             </Button>
             <Button variant="outline" className="w-full" onClick={clearCart}>
               Очистить корзину
@@ -121,10 +173,13 @@ export function CartPage() {
 
             <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-muted rounded-lg">
               <p className="text-xs sm:text-sm text-muted-foreground">
-                У вас на балансе: <span className="text-foreground">25,430 АК</span>
+                У вас на балансе: <span className="text-foreground">{userAK.toLocaleString()} АК</span>
               </p>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                Останется после покупки: <span className="text-foreground">{(25430 - totalAK).toLocaleString()} АК</span>
+                Останется после покупки:{' '}
+                <span className={remainingAfterPayment < 0 ? 'text-destructive' : 'text-foreground'}>
+                  {remainingAfterPayment.toLocaleString()} АК
+                </span>
               </p>
             </div>
           </Card>

@@ -8,10 +8,17 @@ import { setRegistered } from '../lib/auth';
 import { setProfile } from '../lib/profile';
 import { AuthPageShell } from '../components/AuthPageShell';
 import { registerRequest, type RegistrationOption } from '../lib/api';
-import { SearchableSelect } from '../components/SearchableSelect';
 import { loadRegistrationOptions } from '../lib/registration-options';
 import { OnboardingDialog } from '../components/OnboardingDialog';
 import { markOnboardingSeen } from '../lib/onboarding';
+import { cn } from '../components/ui/utils';
+
+const selectClassName = cn(
+  'flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm',
+  'transition-colors hover:border-ring/50',
+  'disabled:cursor-not-allowed disabled:opacity-50',
+  'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none',
+);
 
 export function RegistrationPage() {
   const navigate = useNavigate();
@@ -54,7 +61,6 @@ export function RegistrationPage() {
     };
   }, []);
 
-  // ✅ УПРОЩЕНО: фильтрация специальностей по выбранному университету
   const filteredSpecialities = formData.universityId
     ? specialities.filter((s) => s.university_id === Number(formData.universityId))
     : [];
@@ -192,44 +198,60 @@ export function RegistrationPage() {
               </div>
             </div>
 
-            <div className="space-y-2 group">
+            <div className="space-y-2">
               <Label htmlFor="university">Университет</Label>
-              <SearchableSelect
+              <select
                 id="university"
-                items={universities}
+                className={selectClassName}
                 value={formData.universityId}
-                onValueChange={(universityId) =>
+                onChange={(e) =>
                   setFormData({
                     ...formData,
-                    universityId,
+                    universityId: e.target.value,
                     specialityId: '',
                   })
                 }
-                placeholder="Выберите университет"
-                searchPlaceholder="Поиск университета..."
-                emptyText="Университет не найден"
-                required
-                loading={optionsLoading}
                 disabled={optionsLoading || !!optionsError}
-                className="group-hover:border-ring/50"
-              />
+                required
+              >
+                <option value="">
+                  {optionsLoading ? 'Загрузка...' : 'Выберите университет'}
+                </option>
+                {universities.map((uni) => (
+                  <option key={uni.id} value={uni.id}>
+                    {uni.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="space-y-2 group">
+            <div className="space-y-2">
               <Label htmlFor="specialty">Специальность</Label>
-              <SearchableSelect
+              <select
                 id="specialty"
-                items={filteredSpecialities}
+                className={selectClassName}
                 value={formData.specialityId}
-                onValueChange={(specialityId) => setFormData({ ...formData, specialityId })}
-                placeholder="Выберите специальность"
-                searchPlaceholder="Поиск специальности..."
-                emptyText="Специальность не найдена"
+                onChange={(e) => setFormData({ ...formData, specialityId: e.target.value })}
+                disabled={
+                  optionsLoading ||
+                  !formData.universityId ||
+                  filteredSpecialities.length === 0
+                }
                 required
-                loading={optionsLoading}
-                disabled={optionsLoading || !formData.universityId || filteredSpecialities.length === 0}
-                className="group-hover:border-ring/50"
-              />
+              >
+                <option value="">
+                  {!formData.universityId
+                    ? 'Сначала выберите университет'
+                    : filteredSpecialities.length === 0
+                      ? 'Нет специальностей для этого вуза'
+                      : 'Выберите специальность'}
+                </option>
+                {filteredSpecialities.map((spec) => (
+                  <option key={spec.id} value={spec.id}>
+                    {spec.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2 group">

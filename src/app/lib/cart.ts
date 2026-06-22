@@ -1,25 +1,31 @@
-import { getMenuItemById, type MenuItem } from "./menu-items";
+import type { MenuItem } from "./menu-items";
 
 const STORAGE_KEY = "universe:cart";
 const UPDATED_EVENT = "universe-cart-updated";
 
 export type CartLineItem = MenuItem & { lineId: string };
 
-function readCartIds(): number[] {
+function readCart(): CartLineItem[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((id): id is number => typeof id === "number");
+    return parsed.filter(
+      (item): item is CartLineItem =>
+        item != null &&
+        typeof item === "object" &&
+        typeof (item as CartLineItem).lineId === "string" &&
+        typeof (item as CartLineItem).id === "number",
+    );
   } catch {
     return [];
   }
 }
 
-function persistCartIds(ids: number[]) {
+function persistCart(items: CartLineItem[]) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   } catch {
     // ignore quota / privacy mode
   }
@@ -27,30 +33,28 @@ function persistCartIds(ids: number[]) {
 }
 
 export function getCartCount(): number {
-  return readCartIds().length;
+  return readCart().length;
 }
 
 export function getCartItems(): CartLineItem[] {
-  return readCartIds().flatMap((id, index) => {
-    const item = getMenuItemById(id);
-    if (!item) return [];
-    return [{ ...item, lineId: `${id}-${index}` }];
-  });
+  return readCart();
 }
 
-export function addToCart(itemId: number) {
-  persistCartIds([...readCartIds(), itemId]);
+export function getCartTotal(): number {
+  return readCart().reduce((sum, item) => sum + item.price, 0);
+}
+
+export function addToCart(item: MenuItem) {
+  const lineId = `${item.id}-${Date.now()}`;
+  persistCart([...readCart(), { ...item, lineId }]);
 }
 
 export function removeCartLine(lineId: string) {
-  const ids = readCartIds();
-  const index = Number(lineId.split("-").pop());
-  if (!Number.isInteger(index) || index < 0 || index >= ids.length) return;
-  persistCartIds(ids.filter((_, i) => i !== index));
+  persistCart(readCart().filter((item) => item.lineId !== lineId));
 }
 
 export function clearCart() {
-  persistCartIds([]);
+  persistCart([]);
 }
 
 export function subscribeCartUpdated(callback: () => void) {
