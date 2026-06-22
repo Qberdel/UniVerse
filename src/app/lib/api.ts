@@ -638,7 +638,9 @@ export async function updateUserAvatarRequest(
     return { ok: false, error: result.error ?? "Не удалось обновить аватар" };
   }
 
-  const url = result.data.url;
+  const url =
+    result.data.url ??
+    Object.values(result.data).find((v): v is string => typeof v === "string" && v.includes("/"));
   return url ? { ok: true, data: { url } } : { ok: false, error: "Сервер не вернул URL аватара" };
 }
 

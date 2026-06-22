@@ -13,11 +13,19 @@ export type UserProfile = {
   university: string;
   specialty?: string;
   email: string;
+  /** Путь к аватару на сервере, например /uploads/abc.jpg */
+  avatarPath?: string;
   avatarDataUrl?: string;
   personalPoints?: number;
   universityRank?: number;
   universityStudents?: number;
 };
+
+function resolveProfileAvatar(profile: Pick<UserProfile, "avatarPath" | "avatarDataUrl">): string | undefined {
+  return resolveAvatarUrl(profile.avatarPath) ?? profile.avatarDataUrl;
+}
+
+export { resolveProfileAvatar };
 
 const PROFILE_KEY = "universe:profile";
 const PROFILE_UPDATED_EVENT = "universe-profile-updated";
@@ -39,6 +47,7 @@ function apiProfileToLocal(profile: ApiUserProfile, email?: string): UserProfile
     university: profile.university_name?.trim() || DEFAULT_PROFILE.university,
     specialty: profile.speciality_name?.trim(),
     email: email?.trim() || DEFAULT_PROFILE.email,
+    avatarPath: profile.avatar,
     avatarDataUrl: resolveAvatarUrl(profile.avatar),
     personalPoints: profile.personal_points,
     universityRank: profile.university_rank,
@@ -69,6 +78,7 @@ export function applyAuthUserToProfile(
       fallbackEmail?.trim() ||
       existing?.email ||
       DEFAULT_PROFILE.email,
+    avatarPath: partial.avatar ?? existing?.avatarPath,
     avatarDataUrl:
       resolveAvatarUrl(partial.avatar) || existing?.avatarDataUrl,
     personalPoints: partial.personal_points ?? existing?.personalPoints,
@@ -135,7 +145,11 @@ export function getProfile(): UserProfile | null {
   try {
     const raw = window.localStorage.getItem(PROFILE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as UserProfile;
+    const profile = JSON.parse(raw) as UserProfile;
+    return {
+      ...profile,
+      avatarDataUrl: resolveProfileAvatar(profile),
+    };
   } catch {
     return null;
   }

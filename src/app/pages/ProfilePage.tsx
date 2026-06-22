@@ -27,10 +27,11 @@ import {
   clearProfile,
   getProfile,
   setProfile,
+  resolveProfileAvatar,
   type UserProfile,
 } from "../lib/profile";
 import { useNavigate } from "react-router";
-import { parseAuthUserPayload, profileRequest, fetchCurrentUserRequest, fetchUserProfileRequest, mapActivityStatus, updateUserEmailRequest, resolveAvatarUrl, type UserActivity } from "../lib/api";
+import { parseAuthUserPayload, profileRequest, fetchCurrentUserRequest, fetchUserProfileRequest, mapActivityStatus, updateUserEmailRequest, updateUserAvatarRequest, resolveAvatarUrl, type UserActivity } from "../lib/api";
 import {
   getStudentClaims,
   persistStudentClaims,
@@ -541,6 +542,7 @@ export function ProfilePage() {
             specialty: full.speciality_name,
             email: storedEmail,
             avatarDataUrl: resolveAvatarUrl(full.avatar),
+            avatarPath: full.avatar,
             personalPoints: full.personal_points,
             universityRank: full.university_rank,
             universityStudents: full.university_students,
@@ -594,11 +596,17 @@ export function ProfilePage() {
 
   const [editEmail, setEditEmail] = useState(profile.email);
   const [editAvatarDataUrl, setEditAvatarDataUrl] = useState<string | undefined>(profile.avatarDataUrl);
+  const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!editOpen) return;
     setEditEmail(profile.email);
     setEditAvatarDataUrl(profile.avatarDataUrl);
+    setEditAvatarFile(null);
+    setSaveError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, [editOpen, profile.avatarDataUrl, profile.email]);
 
   const userData = {
@@ -606,7 +614,7 @@ export function ProfilePage() {
     email: profile.email,
     university: profile.university,
     specialty: profile.specialty,
-    avatarDataUrl: profile.avatarDataUrl,
+    avatarDataUrl: resolveProfileAvatar(profile),
     activeCoins: profile.personalPoints ?? 0,
     rank: profile.universityRank ?? 0,
     totalStudents: profile.universityStudents ?? 0,
@@ -623,7 +631,9 @@ export function ProfilePage() {
   const onPickAvatar = () => fileInputRef.current?.click();
 
   const onAvatarSelected = (file: File | null) => {
-    if (!file) return;
+    if (!file || !file.type.startsWith("image/")) return;
+    setEditAvatarFile(file);
+    setSaveError(null);
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = typeof reader.result === "string" ? reader.result : undefined;
@@ -634,24 +644,44 @@ export function ProfilePage() {
 
   const onSaveProfile = async () => {
     const token = getAuthToken();
-    const next: UserProfile = {
-      ...profile,
-      email: editEmail.trim(),
-      avatarDataUrl: editAvatarDataUrl,
-    };
+    setSaveError(null);
+    setSaving(true);
 
-    if (token) {
-      if (editEmail.trim() !== profile.email) {
+    try {
+      let avatarDataUrl = profile.avatarDataUrl;
+      let avatarPath = profile.avatarPath;
+
+      if (token && editAvatarFile) {
+        const avatarRes = await updateUserAvatarRequest(token, editAvatarFile);
+        if (!avatarRes.ok || !avatarRes.data?.url) {
+          setSaveError(avatarRes.error ?? "Не удалось загрузить аватар");
+          return;
+        }
+        avatarPath = avatarRes.data.url;
+        avatarDataUrl = resolveAvatarUrl(avatarPath);
+      }
+
+      if (token && editEmail.trim() !== profile.email) {
         const emailRes = await updateUserEmailRequest(token, editEmail.trim());
         if (!emailRes.ok) {
+          setSaveError(emailRes.error ?? "Не удалось обновить email");
           return;
         }
       }
-    }
 
-    setProfile(next);
-    setProfileState(next);
-    setEditOpen(false);
+      const next: UserProfile = {
+        ...profile,
+        email: editEmail.trim(),
+        avatarDataUrl,
+        avatarPath,
+      };
+      setProfile(next);
+      setProfileState(next);
+      setEditAvatarFile(null);
+      setEditOpen(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const selectedActivity = activityHistory.find((item) => item.id === selectedActivityId) ?? null;
@@ -808,6 +838,11 @@ export function ProfilePage() {
           </DialogHeader>
 
           <div className="flex flex-col gap-5">
+            {saveError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {saveError}
+              </div>
+            )}
             <div>
               <Label>Аватар</Label>
               <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -835,7 +870,11 @@ export function ProfilePage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setEditAvatarDataUrl(undefined)}
+                    onClick={() => {
+                      setEditAvatarDataUrl(undefined);
+                      setEditAvatarFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
                     disabled={!editAvatarDataUrl}
                     className="w-full sm:w-auto"
                   >
@@ -877,8 +916,8 @@ export function ProfilePage() {
             <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
               Отмена
             </Button>
-            <Button type="button" onClick={onSaveProfile} disabled={editEmail.trim().length === 0}>
-              Сохранить
+            <Button type="button" onClick={onSaveProfile} disabled={editEmail.trim().length === 0 || saving}>
+              {saving ? "Сохранение..." : "Сохранить"}
             </Button>
           </DialogFooter>
         </DialogContent>
